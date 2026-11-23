@@ -2,7 +2,7 @@
 
 **Eine persönliche KI-Assistenz für deinen Alltag – selbst gehostet, als installierbare Android-Web-App.**
 
-*English summary: Mein Tag is a self-hosted personal assistant PWA (German UI). You chat with it like with a friend; it manages to-dos, routines, birthdays, trips and goals, syncs with Google Calendar and Google Tasks, and sends you a morning brief with your day plan, weather and news via push notification. Runs on Node.js 22+ with zero npm dependencies. Uses Claude (Anthropic) or DeepSeek as the AI.*
+*English summary: Mein Tag is a self-hosted personal assistant PWA (UI in German, English and Portuguese). You chat with it like with a friend; it manages to-dos, routines, birthdays, trips and goals, syncs with Google Calendar and Google Tasks, and sends you a morning brief with your day plan, weather and news via push notification. Runs on Node.js 22+ with zero npm dependencies. Uses Claude (Anthropic) or DeepSeek as the AI.*
 
 ---
 
@@ -17,11 +17,11 @@ Du chattest mit deiner Assistenz wie mit einer guten Freundin: warm, mit Humor, 
 - **Google Kalender** (lesen, anlegen, ändern, löschen) und **Google Aufgaben** (Zwei-Wege-Sync mit „Alle Aufgaben“ plus Liste „Heute“ für das Homescreen-Widget).
 - **Wetter** für deinen Ort und weitere Orte (open-meteo.com, kostenlos).
 - **Feiertage** automatisch nach deinem Ort (Portugal inkl. Madeira/Azoren und einiger Gemeinden, Deutschland bundesweit).
-- **Unwetterwarnungen** des portugiesischen Wetterdienstes IPMA als Push (nur für Orte in Portugal).
+- **Unwetterwarnungen** als Push: für Orte in Deutschland vom Deutschen Wetterdienst (DWD, über die freie [Bright-Sky-API](https://brightsky.dev)), für Orte in Portugal vom Wetterdienst IPMA.
 - **KI-Anbieter** in der App umschaltbar: Claude (Anthropic) oder DeepSeek, Modell pro Aufgabe wählbar, Kostenübersicht pro Monat.
 - **Datenschutz**: Alle Daten liegen in einer Datei auf deinem Server. Tägliches Backup, Löschen auf Knopfdruck.
 
-Die Oberfläche ist auf Deutsch. Die Assistenz kann auf Deutsch, Englisch oder Portugiesisch antworten.
+**Sprachen:** Deutsch, Englisch und Portugiesisch. Die Sprache unter **Über dich** gilt für die Oberfläche, die Assistenz und die Benachrichtigungen. Vor dem Login richtet sich die Oberfläche nach der Sprache des Browsers.
 
 ## Was du brauchst
 
@@ -37,7 +37,7 @@ Die App ist für **eine Person pro Installation** gedacht (ein Passwort, ein Pro
 1. **Code holen und installieren**
    ```bash
    sudo apt-get install -y git rsync
-   git clone https://github.com/DEIN-NAME/mein-tag.git
+   git clone https://github.com/anf0081/mein-tag.git
    cd mein-tag
    bash deploy/install.sh
    ```
@@ -95,7 +95,7 @@ Die KI wird nach Verbrauch abgerechnet. Mit DeepSeek sind das typischerweise wen
 ## Datenschutz und Sicherheit
 
 - Alle Daten liegen in `data/state.json` auf deinem Server (Dateirechte 600). API-Schlüssel, die du in der App einträgst, werden dort gespeichert und nie wieder an den Browser zurückgegeben.
-- Chat-Inhalte gehen an den gewählten KI-Anbieter, Kalender- und Aufgabendaten an Google, Ortskoordinaten an open-meteo.com.
+- Chat-Inhalte gehen an den gewählten KI-Anbieter, Kalender- und Aufgabendaten an Google, Ortskoordinaten an open-meteo.com (Wetter) und – bei Orten in Deutschland – an api.brightsky.dev (DWD-Warnungen).
 - Zugang per Passwort, Sitzung 90 Tage, Login-Versuche begrenzt. Auf dem Sperrbildschirm steht nur ein neutraler Text.
 - Die Datenschutzseite unter `/datenschutz` füllt sich aus `PRIVACY_OPERATOR`, `PRIVACY_CONTACT` und `PRIVACY_SERVER_LOCATION` in der `.env`.
 - Committe niemals deine `.env` oder den Ordner `data/` (beides steht in `.gitignore`).
@@ -114,13 +114,14 @@ Keine npm-Abhängigkeiten, nur Node.js-Bordmittel.
 | `src/claude.js` | KI-Anbieter (Claude, DeepSeek) |
 | `src/tasks.js`, `src/calendar.js` | Google Aufgaben und Kalender |
 | `src/push.js` | Web Push (VAPID, RFC 8291) |
-| `src/weather.js`, `src/news.js`, `src/warnings.js`, `src/holidays.js` | Wetter, Nachrichten, IPMA-Warnungen, Feiertage |
+| `src/weather.js`, `src/news.js`, `src/warnings.js`, `src/holidays.js` | Wetter, Nachrichten, Unwetterwarnungen (DWD, IPMA), Feiertage |
+| `public/i18n.js`, `public/i18n-dict.js`, `src/i18n.js` | Übersetzung der Oberfläche und der Benachrichtigungen |
 | `public/` | App-Oberfläche (PWA) |
 | `deploy/` | systemd-Dienst, Caddy/nginx, Installationsskript |
 
 ## Mitmachen
 
-Fehler und Ideen gern als Issue. Pull Requests bitte mit Test (`npm test`). Weitere Länder für Feiertage oder Unwetterwarnungen sind sehr willkommen (`src/holidays.js`, `src/warnings.js`).
+Fehler und Ideen gern als Issue. Pull Requests bitte mit Test (`npm test`). Weitere Länder für Feiertage oder Unwetterwarnungen sind sehr willkommen (`src/holidays.js`, `src/warnings.js`), ebenso weitere Sprachen (`public/i18n-dict.js`).
 
 ## Lizenz
 

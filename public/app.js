@@ -1,4 +1,7 @@
 // Mein Tag – App-Logik (ohne Framework)
+import { getLang, locale, setLang, startI18n, tr, missing } from './i18n.js';
+import { GOOGLE_STEPS } from './i18n-dict.js';
+window.__i18nMissing = missing;
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const S = { tab: 'chat', messages: [], today: null, profile: null, pushOn: false, busy: false, name: null, botName: null, avatars: { user: null, assistant: null } };
@@ -52,28 +55,28 @@ function briefHtml(text) {
   const first = lines.findIndex((l) => l.trim());
   const title = (lines[first] || 'Guten Morgen').replace(/\*/g, '').trim();
   let html = '', cur = [];
-  const flush = () => { if (cur.length) html += richText(cur.join('\n')); cur = []; };
+  const flush = () => { if (cur.length) html += `<div class="nt" data-no-i18n>${richText(cur.join('\n'))}</div>`; cur = []; };
   for (const line of lines.slice(first + 1)) {
     const m = line.match(/^\s*\*([^*]{2,40})\*\s*(?:[–—-]\s*)?(.*)$/);
-    if (m) { flush(); html += `<h3>${esc(m[1])}</h3>`; if (m[2]) cur.push(m[2]); } else cur.push(line);
+    if (m) { flush(); html += `<h3 data-no-i18n>${esc(m[1])}</h3>`; if (m[2]) cur.push(m[2]); } else cur.push(line);
   }
   flush();
-  return `<div class="brief-head">${avatarHtml('assistant', 40)}<div><h2>${esc(title)}</h2><p class="body-m muted">Dein Tagesplan${S.botName ? ` von ${esc(S.botName)}` : ''}</p></div></div>${html}`;
+  return `<div class="brief-head">${avatarHtml('assistant', 40)}<div><h2 data-no-i18n>${esc(title)}</h2><p class="body-m muted">Dein Tagesplan${S.botName ? ` von ${esc(S.botName)}` : ''}</p></div></div>${html}`;
 }
 
 const dayKey = (ts) => new Date(ts).toDateString();
 function dayLabel(ts) {
   const d = new Date(ts), now = new Date(), y = new Date(); y.setDate(now.getDate() - 1);
-  const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const time = d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
   if (d.toDateString() === now.toDateString()) return `Heute, ${time}`;
   if (d.toDateString() === y.toDateString()) return `Gestern, ${time}`;
-  return `${d.toLocaleDateString('de-DE', { weekday: 'short' })} ${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}, ${time}`;
+  return `${d.toLocaleDateString(locale(), { weekday: 'short' })} ${d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' })}, ${time}`;
 }
-const numDate = (d) => d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
-const longDate = () => `${new Date().toLocaleDateString('de-DE', { weekday: 'long' })}, ${numDate(new Date())}`;
+const numDate = (d) => d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+const longDate = () => `${new Date().toLocaleDateString(locale(), { weekday: 'long' })}, ${numDate(new Date())}`;
 const addDaysISO = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const dayDiff = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
-const shortDate = (iso) => { const d = new Date(`${iso}T12:00:00`); return `${d.toLocaleDateString('de-DE', { weekday: 'short' })} ${numDate(d)}`; };
+const shortDate = (iso) => { const d = new Date(`${iso}T12:00:00`); return `${d.toLocaleDateString(locale(), { weekday: 'short' })} ${numDate(d)}`; };
 
 let toastTimer;
 function toast(msg, action) {
@@ -122,7 +125,18 @@ function applyMeta(j) {
   if ('assistant_name' in j) S.botName = j.assistant_name;
   if ('assistant_gender' in j) S.botGender = j.assistant_gender;
   if (j.avatars) S.avatars = j.avatars;
+  if (j.language) setLang(j.language, rerenderAll);
   renderIdentity();
+}
+
+/** Nach einem Sprachwechsel alles neu zeichnen. */
+function rerenderAll() {
+  $('#chat-date') && ($('#chat-date').textContent = longDate());
+  $('#today-date') && ($('#today-date').textContent = 'Alles auf einen Blick');
+  renderIdentity();
+  renderMessages();
+  if (S.today) renderToday();
+  if (S.profile) renderProfile();
 }
 
 async function api(path, body) {
@@ -184,10 +198,10 @@ function renderMessages() {
           <button class="btn outlined small" data-action="fb-up">Passt</button>
           <button class="btn outlined small" data-action="fb-down">Besser machen</button></div>` : ''}</article>`;
     } else if (m.role === 'user') {
-      html += `<div class="bubble out">${esc(m.text)}</div>`;
+      html += `<div class="bubble out" data-no-i18n>${esc(m.text)}</div>`;
     } else {
       const acts = m.actions?.length ? `<ul class="saved" aria-label="Gespeichert">${m.actions.map((x) => `<li>${ICON.check}${esc(x)}</li>`).join('')}</ul>` : '';
-      html += `<div class="row-in">${prevIn ? '<span class="spacer"></span>' : avatarHtml('assistant', 32)}<div class="bubble in">${richText(m.text)}${acts}</div></div>`;
+      html += `<div class="row-in">${prevIn ? '<span class="spacer"></span>' : avatarHtml('assistant', 32)}<div class="bubble in"><div class="nt" data-no-i18n>${richText(m.text)}</div>${acts}</div></div>`;
     }
     prevIn = isIn;
   }
@@ -245,7 +259,7 @@ if (SR && micBtn) {
   micBtn.addEventListener('click', () => {
     if (rec) { rec.stop(); return; }
     rec = new SR();
-    rec.lang = { de: 'de-DE', en: 'en-GB', pt: 'pt-PT' }[S.profile?.language || 'de'] || 'de-DE';
+    rec.lang = { de: locale(), en: 'en-GB', pt: 'pt-PT' }[S.profile?.language || 'de'] || locale();
     rec.interimResults = true; rec.continuous = false;
     const base = input.value ? `${input.value.trim()} ` : '';
     rec.onresult = (ev) => { input.value = base + [...ev.results].map((r) => r[0].transcript).join(''); autosize(); };
@@ -275,8 +289,8 @@ function todoMeta(t, today) {
   return `<span class="s">Fällig ${esc(shortDate(t.due))}</span>`;
 }
 
-const relDay = (D, T) => { const n = dayDiff(T, D); return n === 0 ? 'Heute' : n === 1 ? 'Morgen' : n === -1 ? 'Gestern' : new Date(`${D}T12:00:00`).toLocaleDateString('de-DE', { weekday: 'long' }); };
-const longDay = (D) => { const d = new Date(`${D}T12:00:00`); return `${d.toLocaleDateString('de-DE', { weekday: 'long' })}, ${numDate(d)}`; };
+const relDay = (D, T) => { const n = dayDiff(T, D); return n === 0 ? 'Heute' : n === 1 ? 'Morgen' : n === -1 ? 'Gestern' : new Date(`${D}T12:00:00`).toLocaleDateString(locale(), { weekday: 'long' }); };
+const longDay = (D) => { const d = new Date(`${D}T12:00:00`); return `${d.toLocaleDateString(locale(), { weekday: 'long' })}, ${numDate(d)}`; };
 function dayCardHtml() {
   const T = S.today.date, D = S.day || T, x = S.dayData?.date === D ? S.dayData : null;
   const n = dayDiff(T, D);
@@ -312,7 +326,7 @@ function dayCardHtml() {
 function renderToday() {
   const d = S.today; if (!d) return;
   const box = $('#today'); let html = '';
-  if (d.warnings?.length) html += `<section class="warn" role="alert">${ICON.alert}<div><h2>Unwetterwarnung (IPMA)</h2>${d.warnings.map((w) => `<p>${esc(w)}</p>`).join('')}</div></section>`;
+  if (d.warnings?.length) html += `<section class="warn" role="alert">${ICON.alert}<div><h2>Unwetterwarnung</h2>${d.warnings.map((w) => `<p>${esc(w)}</p>`).join('')}</div></section>`;
   html += dayCardHtml();
   if (d.events === null) {
     html += '<section class="section"><h2>Kommende Termine</h2><div class="item"><span class="s">Google Kalender ist noch nicht verbunden.</span></div></section>';
@@ -453,7 +467,7 @@ $('#edit-form').addEventListener('submit', async (e) => {
 });
 $('#edit-delete').addEventListener('click', async () => {
   const f = $('#edit-form');
-  if (!confirm(f.dataset.kind === 'todo' ? 'Diese Aufgabe löschen?' : 'Diese Routine löschen?')) return;
+  if (!confirm(tr(f.dataset.kind === 'todo' ? 'Diese Aufgabe löschen?' : 'Diese Routine löschen?'))) return;
   try {
     S.today = { ...(await api(f.dataset.kind === 'todo' ? '/api/todo/delete' : '/api/recurring/delete', { id: f.dataset.id })), events: S.today.events };
     editDlg().close(); loadDay(); toast('Gelöscht');
@@ -487,7 +501,7 @@ $('#add-form').addEventListener('submit', async (e) => {
 });
 
 // ---------- Über dich ----------
-const usd = (v) => (v > 0 && v < 0.01 ? '< 0,01 $' : v.toLocaleString('de-DE', { style: 'currency', currency: 'USD' }));
+const usd = (v) => (v > 0 && v < 0.01 ? '< 0,01 $' : v.toLocaleString(locale(), { style: 'currency', currency: 'USD' }));
 const modelLabel = (ai, id) => Object.values(ai?.options || {}).flat().find(([m]) => m === id)?.[1] || id;
 function aiSection(ai) {
   if (!ai) return '';
@@ -549,7 +563,7 @@ function renderProfile() {
       <input type="time" aria-label="Uhrzeit Wochenplanung" data-set="weekly_time" value="${esc(p.companion?.weekly_time || '18:00')}"></div>
   </section>
   <section class="section" aria-label="Unwetter und Feiertage"><h2>Unwetter &amp; Feiertage</h2>
-    <label class="item"><span class="grow"><span class="t" style="display:block">Unwetterwarnungen (IPMA)</span><span class="s">Push bei Gelb, Orange oder Rot · ${p.safety?.warning_areas?.length ? `für ${esc(p.safety.warning_areas.join(', '))}` : 'für deine Orte gibt es keine IPMA-Warnungen (nur Portugal)'}</span></span>
+    <label class="item"><span class="grow"><span class="t" style="display:block">Unwetterwarnungen (IPMA/DWD)</span><span class="s">Push bei Gelb, Orange oder Rot · ${p.safety?.warning_areas?.length ? `für ${esc(p.safety.warning_areas.join(', '))}` : 'für deine Orte gibt es keine Warnungen (nur Portugal und Deutschland)'}</span></span>
       <input type="checkbox" role="switch" class="switch" data-set="warnings_enabled" ${p.safety?.warnings_enabled ? 'checked' : ''}></label>
     <label class="item"><span class="grow"><span class="t" style="display:block">Feiertage automatisch</span><span class="s">${p.safety?.holiday_label ? `Nach deinem Ort: ${esc(p.safety.holiday_label)}` : 'Für deinen Ort kenne ich keine Feiertage'}</span></span>
       <input type="checkbox" role="switch" class="switch" data-set="holidays_auto" ${p.safety?.holidays_auto ? 'checked' : ''}></label>
@@ -662,7 +676,7 @@ $('#profile').addEventListener('change', async (e) => {
     catch (err) { toast(err.message); }
   }
   if (e.target.name === 'language') {
-    try { const j = await api('/api/profile', { language: e.target.value }); S.profile.language = j.language; toast({ de: 'Sprache: Deutsch', en: 'Language: English', pt: 'Idioma: Português' }[j.language]); }
+    try { const j = await api('/api/profile', { language: e.target.value }); S.profile.language = j.language; setLang(j.language, rerenderAll); toast({ de: 'Sprache: Deutsch', en: 'Language: English', pt: 'Idioma: Português' }[j.language]); }
     catch (err) { toast(err.message); }
   }
   if (e.target.dataset.set) {
@@ -721,7 +735,7 @@ $('#profile').addEventListener('click', async (e) => {
   if (ph) { photoFor = ph.dataset.photo; $('#file-input').click(); return; }
   const kd = e.target.closest('[data-ai-key-del]');
   if (kd) {
-    if (!confirm('Schlüssel entfernen?')) return;
+    if (!confirm(tr('Schlüssel entfernen?'))) return;
     try { await api('/api/ai', { key: { provider: kd.dataset.aiKeyDel, value: '' } }); toast('Schlüssel entfernt'); loadProfile(); } catch (err) { toast(err.message); }
     return;
   }
@@ -791,7 +805,7 @@ $('#google-form').addEventListener('submit', async (e) => {
 
 $('#reset-form').addEventListener('submit', async (e) => {
   e.preventDefault();
-  if ($('#reset-confirm').value.trim().toUpperCase() !== 'LÖSCHEN') { toast('Bitte genau LÖSCHEN eintippen'); return; }
+  if (![tr('LÖSCHEN'), 'LÖSCHEN'].includes($('#reset-confirm').value.trim().toUpperCase())) { toast('Bitte genau LÖSCHEN eintippen'); return; }
   try {
     await api('/api/reset', { confirm: 'LÖSCHEN' });
     $('#reset-dialog').close();
@@ -844,7 +858,7 @@ menuBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !m
 document.addEventListener('click', async (e) => {
   if (!menu.hidden && !menu.contains(e.target)) { menu.hidden = true; menuBtn.setAttribute('aria-expanded', 'false'); }
   const el = e.target.closest('[data-action],[data-send]'); if (!el) return;
-  if (el.dataset.send) { if (S.tab !== 'chat') setTab('chat'); send(el.dataset.send); return; }
+  if (el.dataset.send) { if (S.tab !== 'chat') setTab('chat'); send(el.dataset.send === 'Onboarding' ? 'Onboarding' : tr(el.dataset.send)); return; } // „Onboarding“ ist ein Befehl und bleibt
   const a = el.dataset.action;
   if (a === 'brief') { menu.hidden = true; if (S.tab !== 'chat') setTab('chat'); runBrief(); }
   if (a === 'push-test') {
@@ -858,6 +872,8 @@ document.addEventListener('click', async (e) => {
   if (a === 'fb-down') feedback('down');
   if (a === 'add-cancel') dlg.close();
   if (a === 'google-setup') {
+    const steps = $('#google-steps'); steps.__de ||= steps.innerHTML;
+    steps.innerHTML = GOOGLE_STEPS[getLang()] || steps.__de;
     $('#redirect-uri').textContent = S.profile?.google?.redirect_uri || `${location.origin}/api/google/callback`;
     $('#g-id').value = ''; $('#g-secret').value = '';
     $('#google-dialog').showModal();
@@ -866,7 +882,7 @@ document.addEventListener('click', async (e) => {
   if (a === 'copy-uri') { navigator.clipboard?.writeText($('#redirect-uri').textContent).then(() => toast('Adresse kopiert'), () => toast('Bitte von Hand kopieren')); }
   if (a === 'google-connect') location.href = '/api/google/start';
   if (a === 'google-disconnect') {
-    if (!confirm('Google-Verbindung trennen? Deine Termine und Aufgaben bei Google bleiben erhalten.')) return;
+    if (!confirm(tr('Google-Verbindung trennen? Deine Termine und Aufgaben bei Google bleiben erhalten.'))) return;
     try { await api('/api/google/disconnect', {}); toast('Google getrennt'); loadProfile(); } catch (err) { toast(err.message); }
   }
   if (a === 'reset') { $('#reset-confirm').value = ''; $('#reset-dialog').showModal(); $('#reset-confirm').focus(); }
@@ -895,5 +911,7 @@ async function startApp() {
   }
 }
 
+startI18n();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 fetch('/api/session', { credentials: 'same-origin' }).then((r) => r.json()).then((j) => (j.authed ? startApp() : showLogin())).catch(() => showLogin());
+

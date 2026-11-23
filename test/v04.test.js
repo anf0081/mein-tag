@@ -449,3 +449,24 @@ test('Ziele: Fortschritt festhalten und im Brief mit Stand zeigen', async () => 
   commitBrief(ctx, { date: T, text: '*Tagesplan*\n- 18:00 Yoga', reminders: [] });
   assert.equal(ctx.state.entities.find((e) => e.name === 'Yoga').brief_planned, T);
 });
+
+test('DWD-Warnungen (Deutschland) über Bright Sky, gemeinsam mit IPMA', async () => {
+  const { getWarnings, inGermany, warningRegions, describeWarning } = await import('../src/warnings.js');
+  const profile = { location: { name: 'Hamburg, Deutschland', lat: 53.55, lon: 9.99, country_code: 'DE' }, weather_places: [{ name: 'Machico, Portugal', lat: 32.717, lon: -16.767 }] };
+  assert.equal(inGermany(profile.location), true);
+  assert.equal(inGermany(profile.weather_places[0]), false);
+  assert.deepEqual(warningRegions(profile), ['Madeira Südküste (IPMA)', 'Hamburg (DWD)']);
+  const now = Date.parse('2026-11-23T10:00:00Z');
+  globalThis.fetch = async (url) => {
+    if (String(url).includes('brightsky')) return { ok: true, json: async () => ({ location: { name_short: 'Hamburg' }, alerts: [
+      { alert_id: 'a1', status: 'actual', response_type: 'prepare', severity: 'moderate', event_de: 'STURMBÖEN', headline_de: 'Amtliche WARNUNG vor STURMBÖEN', onset: '2026-11-23T08:00:00+00:00', expires: '2026-11-23T20:00:00+00:00' },
+      { alert_id: 'a2', status: 'actual', response_type: 'allclear', severity: 'minor', event_de: 'FROST', onset: '2026-11-23T00:00:00+00:00', expires: null },
+      { alert_id: 'a3', status: 'actual', response_type: 'prepare', severity: 'minor', event_de: 'FROST', onset: '2026-11-22T00:00:00+00:00', expires: '2026-11-22T09:00:00+00:00' },
+    ] }) };
+    return { ok: true, json: async () => [{ idAreaAviso: 'MCS', awarenessLevelID: 'yellow', awarenessTypeName: 'Vento', startTime: '2026-11-23T06:00:00', endTime: '2026-11-23T18:00:00', text: '' }] };
+  };
+  const { warnings, errors } = await getWarnings(profile, now);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(warnings.map((w) => [w.source, w.level, w.type, w.area]), [['IPMA', 'Gelb', 'Wind', 'Madeira Südküste'], ['DWD', 'Orange', 'Sturmböen', 'Hamburg']]);
+  assert.match(describeWarning(warnings[1], 'Europe/Berlin'), /^Orange: Sturmböen, Hamburg \(.* bis .*\) – Amtliche WARNUNG vor STURMBÖEN \[DWD\]$/);
+});

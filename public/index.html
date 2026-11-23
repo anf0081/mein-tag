@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
-  <link rel="stylesheet" href="/style.css?v=31">
+  <link rel="stylesheet" href="/style.css?v=32">
 </head>
 <body>
   <!-- Anmeldung -->
@@ -176,7 +176,7 @@
   <dialog id="google-dialog" aria-labelledby="google-title">
     <form id="google-form" class="stack">
       <h2 id="google-title" class="title-l">Google einrichten</h2>
-      <ol class="steps body-m">
+      <ol class="steps body-m" id="google-steps" data-no-i18n>
         <li>Auf <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> ein Projekt „Mein Tag“ anlegen.</li>
         <li>Unter <em>APIs &amp; Dienste → Bibliothek</em> die <strong>Google Calendar API</strong> und die <strong>Google Tasks API</strong> aktivieren.</li>
         <li><em>Google Auth Platform</em>: App-Name und Mailadresse eintragen, Zielgruppe <strong>Extern</strong>, dich als Testnutzerin hinzufügen, dann <strong>App veröffentlichen</strong>.</li>
@@ -219,6 +219,6 @@
   </dialog>
   <input type="file" id="file-input" accept="image/*" hidden>
   <div id="toast" class="toast" role="status" hidden></div>
-  <script src="/app.js?v=31" type="module"></script>
+  <script src="/app.js?v=32" type="module"></script>
 </body>
 </html>

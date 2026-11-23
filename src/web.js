@@ -14,7 +14,8 @@ import { defaultState } from './store.js';
 import { usageSummary } from './usage.js';
 import { PROVIDERS, MODEL_OPTIONS, ROLES, provider as aiProvider, resolveModel, apiKey } from './claude.js';
 import { holidayLabel, holidayPlace, holidaysBetween } from './holidays.js';
-import { AREAS, areasFor, describeWarning } from './warnings.js';
+import { describeWarning, warningRegions } from './warnings.js';
+import { L } from './i18n.js';
 
 const PUB = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const TYPES = {
@@ -59,7 +60,7 @@ export function createWebTransport(ctx, vapid, env = process.env) {
     async sendText(text, opts = {}) {
       logMessage(ctx.state, ctx.save, 'assistant', text, opts.kind);
       if (opts.push) await pushAll(ctx, vapid, env, { url: '/', ...opts.push });
-      if (opts.kind === 'brief') await pushAll(ctx, vapid, env, { title: ctx.state.profile.assistant_name ? `${ctx.state.profile.assistant_name}: Guten Morgen ☀️` : 'Guten Morgen ☀️', body: 'Dein Tagesplan ist da. Tippe zum Öffnen.', url: '/' });
+      if (opts.kind === 'brief') { const t = L(ctx.state); await pushAll(ctx, vapid, env, { title: ctx.state.profile.assistant_name ? `${ctx.state.profile.assistant_name}: ${t('Guten Morgen')} ☀️` : `${t('Guten Morgen')} ☀️`, body: t('Dein Tagesplan ist da. Tippe zum Öffnen.'), url: '/' }); }
     },
     async sendButtons() {}, async sendTemplate() {},
   };
@@ -85,7 +86,7 @@ export function todayData(ctx) {
     all_recurring: [...state.recurring].sort((a, b) => a.next_due.localeCompare(b.next_due)).map((r) => ({ id: r.id, title: r.title, every: r.every, unit: r.unit, next_due: r.next_due })),
     reminders: [...birthdaySignals(people, n.date), ...holidaySignals(holidays, n.date), ...tripSignals(trips, n.date)].map((r) => r.text),
     holiday: state.profile.holidays_auto === false ? null : (holidaysBetween(n.date, n.date, holidayPlace(state.profile))[0]?.name || null),
-    warnings: state.profile.warnings_enabled === false ? [] : (state.current_warnings || []).map((w) => describeWarning(w, ctx.tz())),
+    warnings: state.profile.warnings_enabled === false ? [] : (state.current_warnings || []).map((w) => describeWarning(w, ctx.tz(), state.profile.language)),
     timed: (state.timed || []).filter((r) => !r.done && r.date === n.date).map((r) => ({ time: r.time, text: r.text })),
     done: state.todos.filter((t) => t.done && (t.done_at || '') < n.date).sort((a, b) => (b.done_at || '').localeCompare(a.done_at || '')).slice(0, 50).map((t) => ({ id: t.id, title: t.title, done_at: t.done_at })),
     can_undo: (state.undo_stack || []).length > 0,
@@ -215,7 +216,7 @@ export function createWebServer({ ctx, bot, vapid, env = process.env }) {
       case 'POST /api/logout':
         return json(res, 200, { ok: true }, { 'Set-Cookie': 'sid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' });
       case 'GET /api/chat':
-        return json(res, 200, { messages: state.chat_log.slice(-120), name: state.profile.name, assistant_name: state.profile.assistant_name, assistant_gender: state.profile.assistant_gender || 'f', avatars: avatarInfo(), onboarding_done: state.onboarding.done, push_enabled: state.push_subs.length > 0 });
+        return json(res, 200, { messages: state.chat_log.slice(-120), name: state.profile.name, assistant_name: state.profile.assistant_name, assistant_gender: state.profile.assistant_gender || 'f', language: state.profile.language || 'de', avatars: avatarInfo(), onboarding_done: state.onboarding.done, push_enabled: state.push_subs.length > 0 });
       case 'POST /api/chat': {
         const { text } = await readJson(req);
         if (typeof text !== 'string' || !text.trim()) return json(res, 400, { error: 'Text fehlt' });
@@ -301,7 +302,7 @@ export function createWebServer({ ctx, bot, vapid, env = process.env }) {
           avatars: avatarInfo(), brief_time: state.profile.brief_time,
           language: state.profile.language || 'de', chat_retention_days: state.profile.chat_retention_days ?? 30, chat_messages: state.chat_log.length, news: state.profile.news || {}, news_status: state.news_status || null,
           companion: { due_notify_enabled: state.profile.due_notify_enabled !== false, due_notify_time: state.profile.due_notify_time || '09:00', checkin_enabled: state.profile.checkin_enabled !== false, checkin_time: state.profile.checkin_time || '20:30', weekly_enabled: state.profile.weekly_enabled !== false, weekly_day: state.profile.weekly_day ?? 0, weekly_time: state.profile.weekly_time || '18:00' },
-          safety: { warnings_enabled: state.profile.warnings_enabled !== false, warning_areas: areasFor(state.profile).map((a) => AREAS[a] || a), holidays_auto: state.profile.holidays_auto !== false, holiday_label: holidayLabel(holidayPlace(state.profile)) },
+          safety: { warnings_enabled: state.profile.warnings_enabled !== false, warning_areas: warningRegions(state.profile), holidays_auto: state.profile.holidays_auto !== false, holiday_label: holidayLabel(holidayPlace(state.profile)) },
           usage: usageSummary(state, ctx.today().slice(0, 7)),
           ai: {
             provider: aiProvider(env), providers: PROVIDERS, roles: ROLES, options: MODEL_OPTIONS,
@@ -516,7 +517,7 @@ export function createWebServer({ ctx, bot, vapid, env = process.env }) {
         return json(res, 200, { ok: true });
       }
       case 'POST /api/push/test':
-        await pushAll(ctx, vapid, env, { title: 'Test ✨', body: 'Benachrichtigungen funktionieren.', url: '/' });
+        await pushAll(ctx, vapid, env, { title: 'Test ✨', body: L(state)('Benachrichtigungen funktionieren.'), url: '/' });
         return json(res, 200, { ok: true, subscribers: state.push_subs.length });
       default: return json(res, 404, { error: 'not found' });
     }

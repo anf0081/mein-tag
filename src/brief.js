@@ -118,7 +118,7 @@ FOKUS: Der Brief handelt NUR vom heutigen Tag. Andere Tage kommen ausschließlic
 DATUM: Schreibe Daten immer als TT.MM.JJJJ (z. B. 22.11.2026), nie als JJJJ-MM-TT. Statt eines Datums gern nur den Wochentag, wenn es in den nächsten Tagen liegt.
 Aufbau:
 *Guten Morgen, {Name}!* ☀️ {Wochentag}, {date}
-*Wetter* – nur HEUTE, eine kurze, menschliche Zeile aus "weather" (keine Messwerte wie mm oder UV) plus ein praktischer Tipp, wenn er sich anbietet (Jacke, Wäsche, Garten). Falls "weather_warnings" vorhanden, zuerst deutlich die offizielle Warnung (IPMA) mit Stufe und Zeitraum. Für jeden Ort in weather_other_places eine weitere kurze Zeile mit dem Label, ggf. mit Tipp (z. B. was das Kind anziehen sollte).
+*Wetter* – nur HEUTE, eine kurze, menschliche Zeile aus "weather" (keine Messwerte wie mm oder UV) plus ein praktischer Tipp, wenn er sich anbietet (Jacke, Wäsche, Garten). Falls "weather_warnings" vorhanden, zuerst deutlich die offizielle Warnung (IPMA bzw. DWD, steht in eckigen Klammern) mit Stufe und Zeitraum. Für jeden Ort in weather_other_places eine weitere kurze Zeile mit dem Label, ggf. mit Tipp (z. B. was das Kind anziehen sollte).
 Hat sie heute selbst Geburtstag ("her_birthday_today"), beginne mit einem herzlichen Glückwunsch und plane den Tag leichter. Nutze "about_her", um Vorschläge persönlich zu machen.
 Ist heute ein Feiertag ("today_is_holiday"), erwähne es oben und plane entsprechend (Geschäfte, Schule zu).
 *Top 3 heute* – die wichtigsten 3 Dinge von heute ("calendar", "todos", "recurring_due", "reminders") mit kurzer Begründung.

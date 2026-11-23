@@ -306,3 +306,5 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .photo-main { width: 100%; justify-content: center; }
 .btn.text.danger-text { color: var(--error); }
 #photo-remove[hidden] + #photo-close { margin-left: auto; }
+
+.nt { display: contents; }

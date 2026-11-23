@@ -1,5 +1,5 @@
-const CACHE = 'meintag-v31';
-const SHELL = ['/', '/app.js', '/style.css', '/manifest.webmanifest', '/icon-192.png'];
+const CACHE = 'meintag-v32';
+const SHELL = ['/', '/app.js', '/i18n.js', '/i18n-dict.js', '/style.css', '/manifest.webmanifest', '/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

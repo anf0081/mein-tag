@@ -73,7 +73,7 @@ if (arg('--brief-now')) { await bot.runBrief(); console.log('Brief erzeugt und z
 const server = createWebServer({ ctx, bot, vapid, env });
 const host = env.HOST || '127.0.0.1';
 const port = Number(env.PORT || 8080);
-server.listen(port, host, () => console.log(`Mein Tag v1.0.0 läuft auf http://${host}:${port} (Kalender: ${calendar.configured ? 'verbunden' : 'nicht verbunden'}, KI: ${provider(env)}, Chat: ${resolveModel(env, 'chat')}, Brief: ${resolveModel(env, 'brief')}, Onboarding: ${resolveModel(env, 'onboarding')})`));
+server.listen(port, host, () => console.log(`Mein Tag v1.1.0 läuft auf http://${host}:${port} (Kalender: ${calendar.configured ? 'verbunden' : 'nicht verbunden'}, KI: ${provider(env)}, Chat: ${resolveModel(env, 'chat')}, Brief: ${resolveModel(env, 'brief')}, Onboarding: ${resolveModel(env, 'onboarding')})`));
 setInterval(() => bot.tick(), 60_000);
 ctx.tasks.start();
 console.log(`Google Aufgaben: ${ctx.tasks.configured ? 'Sync aktiv' : 'aus'}`);
