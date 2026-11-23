@@ -1,0 +1,28 @@
+{
+  "name": "mein-tag",
+  "version": "1.0.0",
+  "description": "Mein Tag: selbst gehostete persönliche KI-Assistenz als Android-Web-App mit Morgenbrief, Google Kalender und Aufgaben (Claude oder DeepSeek)",
+  "license": "MIT",
+  "keywords": [
+    "assistant",
+    "pwa",
+    "self-hosted",
+    "claude",
+    "deepseek",
+    "google-calendar",
+    "google-tasks",
+    "web-push"
+  ],
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node --env-file=.env src/index.js",
+    "cli": "node --env-file=.env src/index.js --cli",
+    "brief": "node --env-file=.env src/index.js --brief-now",
+    "google-auth": "node --env-file=.env src/google-auth.js",
+    "test": "node --test test/*.test.js"
+  }
+}

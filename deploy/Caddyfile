@@ -1,0 +1,10 @@
+# Ersetze meintag.DEINE-DOMAIN.de durch deine (Sub-)Domain.
+# Caddy holt das HTTPS-Zertifikat automatisch.
+meintag.DEINE-DOMAIN.de {
+	encode gzip
+	reverse_proxy 127.0.0.1:8080
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Frame-Options "DENY"
+	}
+}

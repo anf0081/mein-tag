@@ -1,0 +1,22 @@
+[Unit]
+Description=Mein Tag (persönliche Assistentin)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=meintag
+Group=meintag
+WorkingDirectory=/opt/meintag
+ExecStart=/usr/bin/node --env-file=/opt/meintag/.env src/index.js
+Restart=always
+RestartSec=5
+# Absicherung
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/meintag/data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,10 @@
+# Eigene Einstellungen und Daten – niemals committen
+.env
+.env.*
+!.env.example
+data/
+*.zip
+
+node_modules/
+.DS_Store
+*.log

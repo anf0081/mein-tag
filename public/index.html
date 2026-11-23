@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta name="theme-color" content="#FBF9F4" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#141613" media="(prefers-color-scheme: dark)">
+  <title>Mein Tag</title>
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="/style.css?v=31">
+</head>
+<body>
+  <!-- Anmeldung -->
+  <section id="login" class="screen login" hidden>
+    <div class="login-inner">
+      <img src="/icon-192.png" alt="" class="login-icon" width="88" height="88">
+      <h1 class="display">Mein Tag</h1>
+      <p class="body-l muted">Schön, dass du da bist. Einmal das Passwort, dann bleibst du angemeldet.</p>
+      <form id="login-form" class="stack">
+        <div class="field">
+          <label for="password">Passwort</label>
+          <input id="password" type="password" autocomplete="current-password" required>
+          <p class="support">Steht in deiner .env-Datei auf dem Server.</p>
+        </div>
+        <button type="submit" class="btn filled">Los geht's</button>
+        <p id="login-error" class="error" role="alert"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- App -->
+  <section id="app" class="screen" hidden>
+    <!-- Chat -->
+    <div id="view-chat" class="view">
+      <header class="appbar">
+        <div class="appbar-id">
+          <span id="chat-avatar" class="av av-40" aria-hidden="true"></span>
+          <div class="appbar-text">
+            <h1 id="chat-title" class="title-l">Mein Tag</h1>
+            <p id="chat-date" class="body-m muted"></p>
+          </div>
+        </div>
+        <button id="menu-btn" class="icon-btn" aria-label="Menü" aria-haspopup="true" aria-expanded="false">
+          <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="19" r="2" fill="currentColor"/></svg>
+        </button>
+        <div id="menu" class="menu" role="menu" hidden>
+          <button role="menuitem" data-action="brief">Morgenbrief jetzt erstellen</button>
+          <button role="menuitem" data-action="push-test">Test-Benachrichtigung senden</button>
+        </div>
+      </header>
+      <main id="chat-scroll" class="scroll">
+        <div id="push-banner" class="banner" hidden>
+          <p class="body-m">Soll ich dich morgens mit deinem Tagesplan wecken?</p>
+          <button class="btn tonal small" data-action="push-on">Ja, gern</button>
+        </div>
+        <div id="messages" class="messages" aria-live="polite"></div>
+      </main>
+      <div class="chips" role="group" aria-label="Vorschläge">
+        <button class="chip" data-action="brief"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>Brief</button>
+        <button class="chip" data-send="Was steht heute an?"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h11"/></svg>Was steht heute an?</button>
+        <button class="chip" data-send="Onboarding"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 14.5-4.5 16 0"/></svg>Onboarding</button>
+        <button class="chip" data-send="Wie sieht meine Woche aus?"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Meine Woche</button>
+      </div>
+      <form id="composer" class="composer">
+        <label for="input" class="sr">Nachricht</label>
+        <textarea id="input" rows="1" placeholder="Schreib mir…" enterkeyhint="send"></textarea>
+        <button type="button" id="mic" class="mic" aria-label="Spracheingabe" aria-pressed="false" hidden>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button>
+        <button type="submit" id="send" class="fab-send" aria-label="Senden">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 12l16-8-5 16-3-7-8-1z"/></svg>
+        </button>
+      </form>
+    </div>
+
+    <!-- Übersicht -->
+    <div id="view-today" class="view" hidden>
+      <header class="appbar">
+        <div class="appbar-id">
+          <span class="av av-40 tonal" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h11"/></svg></span>
+          <div class="appbar-text">
+            <h1 class="title-l">Übersicht</h1>
+            <p id="today-date" class="body-m muted"></p>
+          </div>
+        </div>
+        <span class="appbar-spacer"></span>
+      </header>
+      <main id="today" class="scroll pad-fab"></main>
+      <button id="add-btn" class="fab-ext">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Aufgabe
+      </button>
+    </div>
+
+    <!-- Über dich -->
+    <div id="view-profile" class="view" hidden>
+      <header class="appbar">
+        <div class="appbar-id">
+          <span id="avatar" class="av av-40" aria-hidden="true"></span>
+          <div class="appbar-text">
+            <h1 class="title-l">Über dich</h1>
+            <p class="body-m muted">Was ich weiß und wie ich arbeite</p>
+          </div>
+        </div>
+        <span class="appbar-spacer"></span>
+      </header>
+      <main id="profile" class="scroll"></main>
+    </div>
+
+    <nav class="navbar" aria-label="Hauptnavigation">
+      <button class="nav-item" data-tab="chat" aria-current="page">
+        <span class="indicator"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z"/></svg></span>
+        <span class="nav-label">Chat</span>
+      </button>
+      <button class="nav-item" data-tab="today">
+        <span class="indicator"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h11"/></svg></span>
+        <span class="nav-label">Übersicht</span>
+      </button>
+      <button class="nav-item" data-tab="profile">
+        <span class="indicator"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 14.5-4.5 16 0"/></svg></span>
+        <span class="nav-label">Über dich</span>
+      </button>
+    </nav>
+  </section>
+
+  <!-- Neue Aufgabe -->
+  <dialog id="add-dialog" aria-labelledby="add-title">
+    <form method="dialog" id="add-form" class="stack">
+      <h2 id="add-title" class="title-l">Neue Aufgabe</h2>
+      <div class="field">
+        <label for="add-name">Was ist zu tun?</label>
+        <input id="add-name" type="text" required maxlength="200">
+      </div>
+      <div class="field">
+        <label for="add-due">Fällig am (optional)</label>
+        <input id="add-due" type="date">
+      </div>
+      <div class="field">
+        <label for="add-time">Uhrzeit für Hinweis (optional)</label>
+        <input id="add-time" type="time">
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn text" data-action="add-cancel">Abbrechen</button>
+        <button type="submit" class="btn filled">Speichern</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="edit-dialog" aria-labelledby="edit-title">
+    <form id="edit-form" class="stack">
+      <h2 id="edit-title" class="title-l">Bearbeiten</h2>
+      <div class="field"><label for="e-name">Text</label><input id="e-name" type="text" maxlength="200" required></div>
+      <div id="edit-todo-fields" class="stack">
+        <div class="field"><label for="e-due">Fällig am</label><input id="e-due" type="date"></div>
+        <div class="field"><label for="e-time">Uhrzeit für Hinweis (optional)</label><input id="e-time" type="time"></div>
+        <button type="button" id="edit-clear-due" class="btn text small" style="align-self:flex-start">Datum entfernen</button>
+      </div>
+      <div id="edit-rec-fields" class="stack" hidden>
+        <div class="field-row">
+          <div class="field"><label for="e-every">Alle</label><input id="e-every" type="number" min="1" max="365" inputmode="numeric"></div>
+          <div class="field"><label for="e-unit">Einheit</label>
+            <select id="e-unit"><option value="days">Tage</option><option value="weeks">Wochen</option><option value="months">Monate</option><option value="years">Jahre</option></select></div>
+        </div>
+        <div class="field"><label for="e-next">Nächstes Mal</label><input id="e-next" type="date"></div>
+      </div>
+      <div class="dialog-actions spread">
+        <button type="button" id="edit-delete" class="btn text danger-text">Löschen</button>
+        <span><button type="button" id="edit-cancel" class="btn text">Abbrechen</button>
+        <button type="submit" class="btn filled">Speichern</button></span>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="google-dialog" aria-labelledby="google-title">
+    <form id="google-form" class="stack">
+      <h2 id="google-title" class="title-l">Google einrichten</h2>
+      <ol class="steps body-m">
+        <li>Auf <a href="https://console.cloud.google.com" target="_blank" rel="noopener">console.cloud.google.com</a> ein Projekt „Mein Tag“ anlegen.</li>
+        <li>Unter <em>APIs &amp; Dienste → Bibliothek</em> die <strong>Google Calendar API</strong> und die <strong>Google Tasks API</strong> aktivieren.</li>
+        <li><em>Google Auth Platform</em>: App-Name und Mailadresse eintragen, Zielgruppe <strong>Extern</strong>, dich als Testnutzerin hinzufügen, dann <strong>App veröffentlichen</strong>.</li>
+        <li><em>Clients → Client erstellen</em>, Typ <strong>Webanwendung</strong>. Bei „Autorisierte Weiterleitungs-URIs“ diese Adresse eintragen:
+          <span class="copy-row"><code id="redirect-uri"></code><button type="button" class="btn text small" data-action="copy-uri">Kopieren</button></span></li>
+        <li>Client-ID und Clientschlüssel hier einfügen:</li>
+      </ol>
+      <div class="field"><label for="g-id">Client-ID</label><input id="g-id" type="text" autocomplete="off" spellcheck="false" required></div>
+      <div class="field"><label for="g-secret">Clientschlüssel</label><input id="g-secret" type="password" autocomplete="off" required></div>
+      <div class="dialog-actions">
+        <button type="button" class="btn text" data-action="google-cancel">Abbrechen</button>
+        <button type="submit" class="btn filled">Weiter zu Google</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="reset-dialog" aria-labelledby="reset-title">
+    <form id="reset-form" class="stack">
+      <h2 id="reset-title" class="title-l">Alles löschen?</h2>
+      <p class="body-m">Das löscht Chatverlauf, Todos, Personen, Routinen, Gelerntes, Profil und Bilder unwiderruflich. Das Onboarding beginnt danach von vorn. Termine im Google Kalender und Aufgaben in Google Aufgaben bleiben dort erhalten.</p>
+      <div class="field">
+        <label for="reset-confirm">Tippe LÖSCHEN zur Bestätigung</label>
+        <input id="reset-confirm" type="text" autocomplete="off" autocapitalize="characters">
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn text" data-action="reset-cancel">Abbrechen</button>
+        <button type="submit" class="btn danger">Endgültig löschen</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog id="photo-dialog" aria-labelledby="photo-title">
+    <div class="stack photo-menu">
+      <h2 id="photo-title" class="title-l">Profilbild</h2>
+      <div id="photo-big" class="photo-big"></div>
+      <button type="button" id="photo-change" class="btn filled photo-main">Foto ändern</button>
+      <div class="dialog-actions spread">
+        <button type="button" id="photo-remove" class="btn text danger-text">Entfernen</button>
+        <button type="button" id="photo-close" class="btn text">Schließen</button>
+      </div>
+    </div>
+  </dialog>
+  <input type="file" id="file-input" accept="image/*" hidden>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script src="/app.js?v=31" type="module"></script>
+</body>
+</html>

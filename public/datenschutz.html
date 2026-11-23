@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Datenschutz – Mein Tag</title>
+  <style>
+    body { margin: 0; background: #FBF9F4; color: #1D1C19; font: 16px/1.6 Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 680px; margin: 0 auto; padding: 40px 20px 64px; }
+    h1 { font-size: 28px; line-height: 36px; font-weight: 500; margin: 0 0 8px; }
+    h2 { font-size: 18px; font-weight: 500; margin: 32px 0 8px; }
+    p, li { color: #2F2D29; }
+    a { color: #3E6B4B; }
+    .muted { color: #4A4740; font-size: 14px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Datenschutzerklärung</h1>
+  <p class="muted">Mein Tag – persönliche Assistenz-App · Diese Instanz betreibt: {{OPERATOR}}</p>
+
+  <h2>Worum es geht</h2>
+  <p>„Mein Tag“ ist eine selbst gehostete Open-Source-App für die persönliche Tagesplanung. Diese Instanz wird von {{OPERATOR}} auf einem eigenen Server betrieben und ausschließlich für die eigene Tagesplanung genutzt. Es gibt keine öffentliche Registrierung. Der Zugang ist durch ein Passwort geschützt.</p>
+
+  <h2>Welche Daten verarbeitet werden</h2>
+  <ul>
+    <li>Inhalte, die im Chat oder in der App eingegeben werden (z. B. Aufgaben, Termine, Geburtstage, Notizen, Vorlieben, Ziele).</li>
+    <li>Bei verbundenem Google-Konto: Termine aus Google Kalender sowie Aufgaben aus den Google-Aufgaben-Listen „{{TASKLIST}}“ und „{{TODAYLIST}}“. Die App liest Termine, legt auf ausdrücklichen Wunsch Termine an, ändert oder löscht sie, und gleicht diese Aufgaben-Listen in beide Richtungen ab.</li>
+    <li>Der eingestellte Ort und weitere Wetter-Orte (für Wetter, Unwetterwarnungen und Feiertage).</li>
+    <li>Technische Daten für Push-Benachrichtigungen (eine vom Browser erzeugte Adresse pro Gerät).</li>
+  </ul>
+
+  <h2>Wo die Daten liegen und wer sie erhält</h2>
+  <ul>
+    <li><strong>Eigener Server:</strong> Alle Daten werden auf dem Server der Betreiberin bzw. des Betreibers gespeichert{{SERVER_LOCATION}}.</li>
+    <li><strong>KI-Anbieter ({{AI}}):</strong> Chat-Nachrichten und der für die Antwort nötige Kontext werden zur Verarbeitung an die Schnittstelle dieses Anbieters gesendet.</li>
+    <li><strong>Google:</strong> Kalender- und Aufgabendaten werden über die offiziellen Google-Schnittstellen abgerufen und geändert.</li>
+    <li><strong>Open-Meteo:</strong> Für die Wettervorschau werden die Koordinaten der eingestellten Orte an open-meteo.com übermittelt.</li>
+    <li><strong>Nachrichten und Warnungen:</strong> Schlagzeilen werden von öffentlichen RSS-Feeds (z. B. tagesschau, BBC, RTP) und Unwetterwarnungen vom portugiesischen Wetterdienst IPMA abgerufen. Dabei werden keine persönlichen Daten übermittelt.</li>
+    <li><strong>Push-Dienste:</strong> Benachrichtigungen werden verschlüsselt über den Push-Dienst des jeweiligen Browsers (z. B. Google bei Chrome) zugestellt.</li>
+  </ul>
+  <p>Daten werden nicht verkauft, nicht für Werbung genutzt und an niemanden sonst weitergegeben.</p>
+
+  <h2>Nutzung von Google-Daten</h2>
+  <p>Die Verwendung von Informationen, die über Google-APIs empfangen werden, hält sich an die <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener">Google API Services User Data Policy</a>, einschließlich der Anforderungen zur eingeschränkten Nutzung (Limited Use). Google-Daten werden ausschließlich für die Funktionen der App verwendet.</p>
+
+  <h2>Löschen</h2>
+  <p>In der App können unter „Über dich“ jederzeit alle gespeicherten Daten gelöscht und die Google-Verbindung getrennt werden. Der Google-Zugriff lässt sich zusätzlich unter <a href="https://myaccount.google.com/permissions" rel="noopener">myaccount.google.com/permissions</a> widerrufen.</p>
+
+  <h2>Kontakt</h2>
+  <p>Verantwortlich: {{OPERATOR}}{{CONTACT}}</p>
+
+  <p class="muted"><a href="/">Zur App</a></p>
+</main>
+</body>
+</html>
