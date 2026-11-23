@@ -5,7 +5,7 @@ import { fmtEvent } from './calendar.js';
 import { addDays, localNow } from './util.js';
 import { personaOf, userGenderNote } from './personas.js';
 import { langName } from './lang.js';
-import { getHeadlines, NEWS_CATEGORIES } from './news.js';
+import { enabledFeeds, getHeadlines } from './news.js';
 import { upcoming } from './reminders.js';
 import { holidayLabel, holidayPlace, holidaysBetween } from './holidays.js';
 import { describeWarning } from './warnings.js';
@@ -36,13 +36,14 @@ export async function gatherFacts(ctx) {
     try { facts.weather_other_places.push(`${p.label ? `${p.label} – ` : ''}${p.name}: ${(await getWeather(p, z)).todayText}`); }
     catch (e) { warnings.push(`Wetter ${p.name}: ${e.message}`); }
   }
-  const newsOn = state.profile.news || {};
-  if (Object.values(newsOn).some(Boolean)) {
+  const feeds = enabledFeeds(state.profile);
+  if (feeds.length) {
     try {
-      const h = await getHeadlines(newsOn);
-      facts.headlines = Object.fromEntries(Object.keys(NEWS_CATEGORIES).filter((k) => h[k]?.length).map((k) => [NEWS_CATEGORIES[k].label, h[k].map((x) => `[${x.lang}] ${x.text}`)]));
+      const h = await getHeadlines(feeds);
+      const labels = [...new Set(feeds.map((f) => f.label))];
+      facts.headlines = Object.fromEntries(labels.filter((l) => h.groups[l]?.length).map((l) => [l, h.groups[l].map((x) => `[${x.lang}] ${x.text}`)]));
       facts._headlinesRaw = h;
-      state.news_status = { at: Date.now(), counts: Object.fromEntries(Object.keys(NEWS_CATEGORIES).filter((k) => newsOn[k]).map((k) => [NEWS_CATEGORIES[k].label, h[k]?.length || 0])), errors: h.errors || [] };
+      state.news_status = { at: Date.now(), counts: Object.fromEntries(labels.map((l) => [l, h.groups[l]?.length || 0])), errors: h.errors || [] };
       if (h.errors.length) warnings.push(`Nachrichten teils nicht erreichbar (${h.errors.join('; ')})`);
     } catch (e) { warnings.push(`Nachrichten: ${e.message}`); }
   }
@@ -75,7 +76,7 @@ export async function gatherFacts(ctx) {
   if (state.profile.birthday && state.profile.birthday.slice(-5) === n.date.slice(5)) facts.her_birthday_today = true;
   facts.about_her = state.profile.about || '';
   if (state.profile.holidays_auto !== false) {
-    const hol = holidaysBetween(n.date, addDays(n.date, 7), holidayPlace(state.profile));
+    const hol = holidaysBetween(n.date, addDays(n.date, 7), holidayPlace(state.profile, state.holiday_cache));
     const todayHol = hol.filter((h) => h.date === n.date).map((h) => h.name);
     if (todayHol.length) facts.today_is_holiday = todayHol.join(', ');
     facts.next_7_days.push(...hol.filter((h) => h.date > n.date).map((h) => `${h.date}: Feiertag – ${h.name}`));
@@ -131,14 +132,14 @@ Ist heute ein Feiertag ("today_is_holiday"), erwähne es oben und plane entsprec
   • etwas aus "next_7_days", "upcoming_reminders" oder "todos_next_days", das heute schon Vorbereitung braucht (Geschenk besorgen, Unterlagen, packen, eine Frist) – mit Wochentag;
   • ODER, wenn heute wenig ansteht (wenige Termine und Todos): eine Aufgabe aus "undated_todos", die heute gut passt (Wetter, freie Zeit, liegt schon lange, passt zu ihren Zielen oder zu "recent_chat"), mit konkretem Vorschlag, wann. Bevorzuge Aufgaben, die nicht in den letzten 3 Tagen "zuletzt im Brief kommentiert" wurden.
   Formuliere so, dass sie im Chat leicht zustimmen kann (z. B. „Soll ich es für Donnerstag eintragen?“). Gibt es nichts Sinnvolles, lass den Punkt weg.
-*Nachrichten* – nur aus "headlines": je Kategorie (Welt, Portugal, Deutschland) die 1–2 wichtigsten Meldungen, je eine neutrale Zeile in eigenen Worten, übersetzt in die Sprache aus "language" (Originale sind teils Englisch oder Portugiesisch), mit Quelle in Klammern, z. B. "- Portugal: … (RTP)". Wähle nach Tragweite, nicht nach Sensation; keine Wertung, nichts dazuerfinden. Danach optional 1 Zeile zu ihren eigenen Themen (news_topics), nur falls Websuche-Ergebnisse von heute/gestern vorliegen. Ohne headlines den Abschnitt weglassen.
+*Nachrichten* – nur aus "headlines": je Kategorie aus "headlines" (z. B. Welt, Deutschland, Österreich oder eigene Quellen) die 1–2 wichtigsten Meldungen, je eine neutrale Zeile in eigenen Worten, übersetzt in die Sprache aus "language" (Originale sind teils Englisch oder Portugiesisch), mit Quelle in Klammern, z. B. "- Portugal: … (RTP)". Wähle nach Tragweite, nicht nach Sensation; keine Wertung, nichts dazuerfinden. Danach optional 1 Zeile zu ihren eigenen Themen (news_topics), nur falls Websuche-Ergebnisse von heute/gestern vorliegen. Ohne headlines den Abschnitt weglassen.
 Berücksichtige "learned" und "feedback" strikt (Stil, Länge, Vorlieben). Lass leere Abschnitte weg.
 Nutze "recent_chat" (die letzte Unterhaltung mit dir): Was sie dort über heute gesagt hat (Pläne, Termine, Stimmung, Energie), fließt in den Tagesplan ein. Erfinde daraus aber keine Fakten.
 PFLICHT, auch wenn sie sich kürzere Briefe wünscht (dann kürzer formulieren, aber nichts weglassen):
 - *Termine heute* enthält JEDEN Kalendereintrag von heute und *Aufgaben heute* JEDE Aufgabe aus "todos" und JEDE Routine aus "recurring_due" – vollständig, je eine Zeile.
 - Für JEDEN Eintrag in weather_other_places steht im Wetter-Abschnitt eine eigene Zeile.
 - Wenn "goals_routines" Einträge hat, gibt es den Abschnitt *Ziele & Routinen* als kurzen Fließtext, und mindestens eins davon steht als Zeitblock im Tagesplan.
-- Wenn "headlines" Einträge hat, gibt es den Abschnitt *Nachrichten* mit JEDER darin enthaltenen Kategorie (Welt, Portugal, Deutschland – keine auslassen).
+- Wenn "headlines" Einträge hat, gibt es den Abschnitt *Nachrichten* mit JEDER darin enthaltenen Kategorie (keine auslassen).
 - ÜBERSETZEN: Jede Schlagzeile ist mit ihrer Originalsprache markiert ([de], [en], [pt]). Gib KEINE Schlagzeile im Original wieder, sondern formuliere jede Meldung neu in der Sprache aus "language". Auch Eigennamen-Zusätze und Überschriften gehören in diese Sprache.`;
 
 /** Sicherheitsnetz: Was die KI an heutigen Terminen/Aufgaben ausgelassen hat, wird unten ergänzt. */

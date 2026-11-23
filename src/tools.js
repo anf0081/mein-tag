@@ -1,6 +1,7 @@
 import { advanceRecurring } from './signals.js';
 import { ensureReminderTodos } from './reminders.js';
 import { geocode, getWeather } from './weather.js';
+import { FEEDS, applyCountryFeeds, enabledFeedIds, enabledFeeds } from './news.js';
 import { fmtEvent } from './calendar.js';
 import { SECTIONS } from './onboarding.js';
 import { addDays, isDate, isMonthDay, localNow, localToUtc, rid } from './util.js';
@@ -71,8 +72,9 @@ export const TOOL_DEFS = [
   def('get_weather', 'Wetter für heute und morgen abrufen, für den Wohnort oder einen beliebigen anderen Ort.', { location_name: str('Ort, z. B. München. Leer = Wohnort') }),
   def('add_weather_place', 'Zusätzlichen Wetter-Ort dauerhaft in den Morgenbrief aufnehmen (z. B. Arbeitsort oder Schule der Kinder).', { location_name: str('Ort'), label: str('Wofür, z. B. Büro oder Schule') }, ['location_name']),
   def('remove_weather_place', 'Zusätzlichen Wetter-Ort aus dem Morgenbrief entfernen.', { location_name: str('') }, ['location_name']),
-  def('set_news', 'Nachrichten im Morgenbrief ein- oder ausschalten.', {
-    world: { type: 'boolean', description: 'Weltnachrichten' }, pt: { type: 'boolean', description: 'Portugal' }, de: { type: 'boolean', description: 'Deutschland' },
+  def('set_news', `Nachrichtenquellen im Morgenbrief ein- oder ausschalten. Bekannte Quellen (id – Name, Kategorie): ${FEEDS.map((f) => `${f.id} – ${f.name}, ${f.label}`).join('; ')}. Eigene RSS-Feeds fügt sie unter „Über dich“ hinzu.`, {
+    enable: { type: 'array', items: { type: 'string' }, description: 'IDs, die eingeschaltet werden' },
+    disable: { type: 'array', items: { type: 'string' }, description: 'IDs, die ausgeschaltet werden' },
   }),
   def('log_goal_progress', 'Festhalten, dass sie etwas für ein Ziel, eine Routine oder ein Hobby getan hat (z. B. „war heute beim Yoga“). Für den Überblick, wo was steht.', {
     name: str('Name des Ziels/der Routine/des Hobbys wie gespeichert'), date: str('YYYY-MM-DD, leer = heute'), note: str('kurz, optional: was/wie viel/wie es war'),
@@ -241,8 +243,11 @@ const handlers = {
     patch(p, rest, ['birthday', 'due_notify_enabled', 'due_notify_time', 'checkin_enabled', 'checkin_time', 'weekly_enabled', 'weekly_day', 'weekly_time', 'warnings_enabled', 'holidays_auto', 'name', 'assistant_name', 'assistant_gender', 'user_gender', 'language', 'tz', 'brief_time', 'news_topics', 'daily_schedule', 'notes']);
     if (location_name) {
       const g = await geocode(location_name);
-      p.location = { name: g.name, lat: g.lat, lon: g.lon, elevation: g.elevation, country_code: g.country_code };
-      if (!rest.tz && !p.tz) p.tz = g.tz;
+      const oldCC = p.location?.country_code || null;
+      p.location = { name: g.name, lat: g.lat, lon: g.lon, elevation: g.elevation, country_code: g.country_code, admin1: g.admin1, admin2: g.admin2, admin3: g.admin3 };
+      if (!rest.tz && g.tz) p.tz = g.tz; // neue Zeitzone mit dem Ort
+      // Nachrichten des neuen Landes automatisch dazu (die automatisch gewählten des alten Landes fallen weg)
+      if (g.country_code && g.country_code !== oldCC) applyCountryFeeds(p, g.country_code);
     }
     return p;
   },
@@ -256,7 +261,7 @@ const handlers = {
     const g = await geocode(location_name);
     const list = (state.profile.weather_places ||= []);
     const i = list.findIndex((p) => p.name === g.name);
-    const place = { name: g.name, lat: g.lat, lon: g.lon, elevation: g.elevation, label: label || null };
+    const place = { name: g.name, lat: g.lat, lon: g.lon, elevation: g.elevation, country_code: g.country_code, admin1: g.admin1, admin2: g.admin2, admin3: g.admin3, label: label || null };
     if (i >= 0) list[i] = place; else { if (list.length >= 5) throw new Error('Maximal 5 zusätzliche Orte'); list.push(place); }
     return place;
   },
@@ -267,10 +272,19 @@ const handlers = {
     if (i < 0) throw new Error('Ort nicht gefunden');
     return list.splice(i, 1)[0];
   },
-  set_news(input, { state }) {
-    const n = (state.profile.news ||= {});
-    for (const k of ['world', 'pt', 'de']) if (typeof input[k] === 'boolean') n[k] = input[k];
-    return n;
+  set_news({ enable = [], disable = [], world, pt, de }, { state }) {
+    const p = state.profile;
+    const known = new Set([...FEEDS.map((f) => f.id), ...(p.custom_feeds || []).map((f) => f.id)]);
+    // alte Schalter weiter verstehen
+    const old = { world: ['ts_world', 'bbc_world'], pt: ['rtp_pt'], de: ['ts_de'] };
+    for (const [k, v] of Object.entries({ world, pt, de })) if (typeof v === 'boolean') (v ? enable : disable).push(...old[k]);
+    const bad = [...enable, ...disable].filter((id) => !known.has(id));
+    if (bad.length) throw new Error(`Unbekannte Quelle: ${bad.join(', ')}`);
+    let ids = enabledFeedIds(p).filter((id) => !disable.includes(id));
+    for (const id of enable) if (!ids.includes(id)) ids.push(id);
+    p.news_feeds = ids;
+    p.news_auto = (p.news_auto || []).filter((id) => ids.includes(id) && !enable.includes(id));
+    return { enabled: enabledFeeds(p).map((f) => `${f.name} (${f.label})`) };
   },
   log_goal_progress({ name, date, note }, { state, today }) {
     const d = date || today(); needDate(d, 'date');
@@ -364,7 +378,7 @@ export function describeAction(name, input = {}, out = {}) {
     case 'end_focus': return `Fokus beendet${o.done ? ': erledigt' : ''}`;
     case 'add_weather_place': return `Wetter-Ort: ${o.name || i.location_name}`;
     case 'remove_weather_place': return `Wetter-Ort entfernt: ${o.name || i.location_name}`;
-    case 'set_news': return `Nachrichten: ${['world', 'pt', 'de'].filter((k) => o[k]).map((k) => ({ world: 'Welt', pt: 'Portugal', de: 'Deutschland' }[k])).join(', ') || 'aus'}`;
+    case 'set_news': return `Nachrichten: ${o.enabled?.join(', ') || 'aus'}`;
     default: return null;
   }
 }

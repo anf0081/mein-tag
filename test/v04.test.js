@@ -367,7 +367,7 @@ test('Wetter menschlich, Datumsformat TT.MM.JJJJ', async () => {
 });
 
 test('News: Quellen werden gemischt, Zeichensatz wird beachtet', async () => {
-  const { getHeadlines, decodeBody } = await import('../src/news.js');
+  const { getHeadlines, decodeBody, FEED_BY_ID } = await import('../src/news.js');
   const item = (t, h) => `<item><title>${t}</title><pubDate>${new Date(Date.now() - h * 3600e3).toUTCString()}</pubDate></item>`;
   globalThis.fetch = async (url) => {
     const body = url.includes('bbc') ? `<rss>${item('BBC one', 5)}${item('BBC two', 6)}</rss>`
@@ -375,8 +375,8 @@ test('News: Quellen werden gemischt, Zeichensatz wird beachtet', async () => {
       : '<html>Blocked</html>';
     return { ok: true, headers: new Map([['content-type', 'text/xml']]), arrayBuffer: async () => new TextEncoder().encode(body).buffer };
   };
-  const h = await getHeadlines({ world: true, pt: true });
-  assert.ok(h.world.some((x) => x.text.startsWith('BBC one')), 'BBC wird nicht verdrängt');
+  const h = await getHeadlines([FEED_BY_ID.ts_world, FEED_BY_ID.bbc_world, FEED_BY_ID.rtp_pt]);
+  assert.ok(h.groups.Welt.some((x) => x.text.startsWith('BBC one')), 'BBC wird nicht verdrängt');
   assert.match(h.errors.join(' '), /RTP: keine Meldungen/);
   const latin = Uint8Array.from([...'<?xml version="1.0" encoding="ISO-8859-1"?><t>Ação</t>'].map((c) => c.charCodeAt(0)));
   assert.match(decodeBody(latin, 'text/xml'), /Ação/);
@@ -469,4 +469,87 @@ test('DWD-Warnungen (Deutschland) über Bright Sky, gemeinsam mit IPMA', async (
   assert.deepEqual(errors, []);
   assert.deepEqual(warnings.map((w) => [w.source, w.level, w.type, w.area]), [['IPMA', 'Gelb', 'Wind', 'Madeira Südküste'], ['DWD', 'Orange', 'Sturmböen', 'Hamburg']]);
   assert.match(describeWarning(warnings[1], 'Europe/Berlin'), /^Orange: Sturmböen, Hamburg \(.* bis .*\) – Amtliche WARNUNG vor STURMBÖEN \[DWD\]$/);
+});
+
+test('Warnungen weiterer Länder: NWS, Met Office, MeteoAlarm, INMET', async () => {
+  const W = await import('../src/warnings.js');
+  const now = Date.parse('2026-11-23T12:00:00Z');
+  const ny = { name: 'New York, USA', lat: 40.71, lon: -74.0, country_code: 'US' };
+  const london = { name: 'London, UK', lat: 51.5, lon: -0.12, country_code: 'GB' };
+  const wien = { name: 'Wien, Österreich', lat: 48.2, lon: 16.37, country_code: 'AT', admin1: 'Wien' };
+  const sp = { name: 'São Paulo, Brasilien', lat: -23.55, lon: -46.63, country_code: 'BR', admin1: 'São Paulo' };
+  const sydney = { name: 'Sydney, Australien', lat: -33.87, lon: 151.2, country_code: 'AU' };
+  assert.deepEqual([ny, london, wien, sp, sydney].map(W.providerFor), ['NWS', 'Met Office', 'MeteoAlarm', 'INMET', null]);
+  assert.equal(W.ukRegionFor(london), 'se');
+  assert.deepEqual(W.warningRegions({ location: wien, weather_places: [ny, sydney] }), ['Wien (MeteoAlarm)', 'New York (NWS)']);
+
+  const nws = W.nwsWarnings({ features: [
+    { properties: { id: 'n1', status: 'Actual', messageType: 'Alert', severity: 'Moderate', event: 'Winter Storm Warning', headline: 'Winter Storm Warning until Tue', onset: '2026-11-23T10:00:00Z', ends: '2026-11-24T10:00:00Z' } },
+    { properties: { id: 'n2', status: 'Test', severity: 'Severe', event: 'Test' } },
+  ] }, ny, now);
+  assert.deepEqual(nws.map((w) => [w.levelId, w.type, w.area]), [['orange', 'Winter Storm Warning', 'New York']]);
+
+  const mo = W.metOfficeWarnings(`<rss><channel><item><title>Yellow warning of wind affecting London &amp; South East England</title><description>Strong winds Tuesday</description><guid>g1</guid><pubDate>Mon, 23 Nov 2026 09:00:00 GMT</pubDate></item><item><title>Something else</title></item></channel></rss>`, 'se', [london]);
+  assert.deepEqual(mo.map((w) => [w.levelId, w.type, w.type_en]), [['yellow', 'Wind', 'Wind']]);
+
+  const ma = W.meteoalarmWarnings(`<feed><entry><id>x</id><cap:identifier>a1</cap:identifier><cap:areaDesc>Wien</cap:areaDesc><cap:event>Gewitter</cap:event><cap:severity>Severe</cap:severity><cap:onset>2026-11-23T10:00:00+01:00</cap:onset><cap:expires>2026-11-23T20:00:00+01:00</cap:expires></entry>
+    <entry><cap:identifier>a2</cap:identifier><cap:areaDesc>Tirol</cap:areaDesc><cap:event>Schnee</cap:event><cap:severity>Moderate</cap:severity><cap:expires>2026-11-23T20:00:00+01:00</cap:expires></entry>
+    <entry><cap:identifier>a3</cap:identifier><cap:areaDesc>Wien</cap:areaDesc><cap:event>Wind</cap:event><cap:severity>Minor</cap:severity></entry></feed>`, [wien], now);
+  assert.deepEqual(ma.map((w) => [w.levelId, w.type, w.area]), [['orange', 'Gewitter', 'Wien']]);
+
+  const br = W.inmetWarnings(`<rss><item><title>Aviso de Tempestade. Severidade Grau: Perigo</title><description>Estados: São Paulo, Paraná. Fim: 24/11/2026 10:00</description><guid>i1</guid></item>
+    <item><title>Aviso de Chuvas Intensas. Severidade Grau: Perigo Potencial</title><description>Estados: Bahia</description></item></rss>`, [sp], now);
+  assert.deepEqual(br.map((w) => [w.levelId, w.type, w.area]), [['orange', 'Tempestade', 'São Paulo']]);
+});
+
+test('Nachrichten: Quellen-Liste, alte Einstellung, Land automatisch, eigene Feeds sicher', async () => {
+  const N = await import('../src/news.js');
+  assert.deepEqual(N.enabledFeedIds({ news: { world: true, pt: true, de: false } }), ['ts_world', 'bbc_world', 'rtp_pt']);
+  const p = { news: { world: true, de: true } };
+  let r = N.applyCountryFeeds(p, 'AT');
+  assert.deepEqual(p.news_feeds, ['ts_world', 'bbc_world', 'ts_de', 'orf_at']);
+  assert.deepEqual(r.added.map((f) => f.id), ['orf_at']);
+  r = N.applyCountryFeeds(p, 'BR');
+  assert.deepEqual(p.news_feeds, ['ts_world', 'bbc_world', 'ts_de', 'g1_br', 'abr_br'], 'ORF (automatisch) fällt weg, tagesschau (selbst gewählt) bleibt');
+  assert.deepEqual(r.removed.map((f) => f.id), ['orf_at']);
+  p.custom_feeds = [{ id: 'c_1', name: 'Mein Blog', url: 'https://blog.example.org/feed' }]; p.news_feeds.push('c_1');
+  assert.equal(N.enabledFeeds(p).at(-1).label, 'Mein Blog');
+  for (const bad of ['http://localhost/x', 'http://192.168.1.5/rss', 'file:///etc/passwd', 'http://10.0.0.1/', 'http://intranet/feed', 'kein url']) assert.throws(() => N.safeFeedUrl(bad), bad);
+  assert.equal(N.safeFeedUrl('https://rss.orf.at/news.xml'), 'https://rss.orf.at/news.xml');
+
+  globalThis.fetch = async (url) => ({ ok: true, headers: new Map(), arrayBuffer: async () => new TextEncoder().encode(`<rss><channel><title>Feed</title><item><title>${url.includes('orf') ? 'Wien' : 'Welt'} Meldung</title><pubDate>${new Date().toUTCString()}</pubDate></item></channel></rss>`).buffer });
+  const h = await N.getHeadlines([N.FEED_BY_ID.orf_at, N.FEED_BY_ID.bbc_world]);
+  assert.deepEqual(Object.keys(h.groups).sort(), ['Welt', 'Österreich']);
+  assert.match(h.groups['Österreich'][0].text, /^Wien Meldung \(ORF\)/);
+});
+
+test('Ortswechsel: Zeitzone und Nachrichten des neuen Landes', async () => {
+  const ctx = mk();
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ results: [{ name: 'Wien', country: 'Österreich', latitude: 48.2, longitude: 16.37, timezone: 'Europe/Vienna', country_code: 'AT', admin1: 'Wien' }] }) });
+  await executeTool('update_profile', { location_name: 'Wien' }, ctx);
+  assert.equal(ctx.state.profile.tz, 'Europe/Vienna');
+  assert.equal(ctx.state.profile.location.admin1, 'Wien');
+  assert.ok(ctx.state.profile.news_feeds.includes('orf_at'));
+  await executeTool('set_news', { disable: ['orf_at'], enable: ['npr_us'] }, ctx);
+  assert.ok(!ctx.state.profile.news_feeds.includes('orf_at') && ctx.state.profile.news_feeds.includes('npr_us'));
+  await assert.rejects(() => executeTool('set_news', { enable: ['gibtsnicht'] }, ctx), /Unbekannte Quelle/);
+});
+
+test('Feiertage anderer Länder über date.nager.at, zwischengespeichert', async () => {
+  const H = await import('../src/holidays.js');
+  const profile = { location: { name: 'Wien, Österreich', lat: 48.2, lon: 16.37, country_code: 'AT' } };
+  const cache = {};
+  let calls = 0;
+  globalThis.fetch = async (url) => { calls++; assert.match(url, /PublicHolidays\/(2026|2027)\/AT$/); return { ok: true, status: 200, json: async () => [
+    { date: url.includes('2026') ? '2026-10-26' : '2027-10-26', localName: 'Nationalfeiertag', name: 'National Holiday', global: true, types: ['Public'] },
+    { date: '2026-03-19', localName: 'Josef', name: 'St. Joseph', global: false, counties: ['AT-2'], types: ['Public'] },
+  ] }; };
+  assert.equal(await H.ensureHolidays(profile, cache, [2026, 2027]), true);
+  assert.equal(await H.ensureHolidays(profile, cache, [2026, 2027]), false, 'nicht erneut laden');
+  assert.equal(calls, 2);
+  const place = H.holidayPlace(profile, cache);
+  assert.deepEqual(H.holidaysBetween('2026-10-01', '2026-12-31', place), [{ date: '2026-10-26', name: 'Nationalfeiertag' }]);
+  assert.equal(H.holidayLabel(place), 'AT (landesweite Feiertage)');
+  // Madeira bleibt bei der eigenen, genaueren Liste
+  assert.equal(H.holidayPlace({ location: { name: 'Machico, Portugal', lat: 32.717, lon: -16.767 } }, cache).region, 'madeira');
 });

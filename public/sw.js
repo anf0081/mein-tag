@@ -1,4 +1,4 @@
-const CACHE = 'meintag-v32';
+const CACHE = 'meintag-v34';
 const SHELL = ['/', '/app.js', '/i18n.js', '/i18n-dict.js', '/style.css', '/manifest.webmanifest', '/icon-192.png'];
 
 self.addEventListener('install', (e) => {

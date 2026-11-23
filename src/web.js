@@ -13,9 +13,10 @@ import { queueSettingNote } from './chat.js';
 import { defaultState } from './store.js';
 import { usageSummary } from './usage.js';
 import { PROVIDERS, MODEL_OPTIONS, ROLES, provider as aiProvider, resolveModel, apiKey } from './claude.js';
-import { holidayLabel, holidayPlace, holidaysBetween } from './holidays.js';
+import { ensureHolidays, holidayLabel, holidayPlace, holidaysBetween } from './holidays.js';
 import { describeWarning, warningRegions } from './warnings.js';
 import { L } from './i18n.js';
+import { FEEDS, enabledFeedIds, enabledFeeds, feedTitle, fetchFeed, safeFeedUrl } from './news.js';
 
 const PUB = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const TYPES = {
@@ -85,7 +86,7 @@ export function todayData(ctx) {
     recurring: recurringSignals(state.recurring, n.date).map((r) => { const x = state.recurring.find((y) => y.id === r.recurringId); return { id: r.recurringId, text: r.text, title: x?.title || r.text, next_due: x?.next_due, days: r.days }; }),
     all_recurring: [...state.recurring].sort((a, b) => a.next_due.localeCompare(b.next_due)).map((r) => ({ id: r.id, title: r.title, every: r.every, unit: r.unit, next_due: r.next_due })),
     reminders: [...birthdaySignals(people, n.date), ...holidaySignals(holidays, n.date), ...tripSignals(trips, n.date)].map((r) => r.text),
-    holiday: state.profile.holidays_auto === false ? null : (holidaysBetween(n.date, n.date, holidayPlace(state.profile))[0]?.name || null),
+    holiday: state.profile.holidays_auto === false ? null : (holidaysBetween(n.date, n.date, holidayPlace(state.profile, state.holiday_cache))[0]?.name || null),
     warnings: state.profile.warnings_enabled === false ? [] : (state.current_warnings || []).map((w) => describeWarning(w, ctx.tz(), state.profile.language)),
     timed: (state.timed || []).filter((r) => !r.done && r.date === n.date).map((r) => ({ time: r.time, text: r.text })),
     done: state.todos.filter((t) => t.done && (t.done_at || '') < n.date).sort((a, b) => (b.done_at || '').localeCompare(a.done_at || '')).slice(0, 50).map((t) => ({ id: t.id, title: t.title, done_at: t.done_at })),
@@ -113,7 +114,7 @@ export function dayData(ctx, D) {
   for (const p of state.people) if (p.birthday && p.birthday.slice(-5) === md) notes.push(`Geburtstag: ${p.name}${p.relation ? ` (${p.relation})` : ''}`);
   for (const h of state.holidays) if (h.date && h.date.slice(-5) === md) notes.push(h.name);
   for (const t of state.trips) { if (t.start === D) notes.push(`Reise beginnt: ${t.title}`); if (t.end === D) notes.push(`Rückreise: ${t.title}`); }
-  if (state.profile.holidays_auto !== false) for (const h of holidaysBetween(D, D, holidayPlace(state.profile))) notes.push(`Feiertag: ${h.name}`);
+  if (state.profile.holidays_auto !== false) for (const h of holidaysBetween(D, D, holidayPlace(state.profile, state.holiday_cache))) notes.push(`Feiertag: ${h.name}`);
   const timed = (state.timed || []).filter((r) => r.date === D).sort((a, b) => a.time.localeCompare(b.time)).map((r) => ({ time: r.time, text: r.text, done: !!r.done }));
   return { date: D, today: T, items, notes, timed };
 }
@@ -300,9 +301,9 @@ export function createWebServer({ ctx, bot, vapid, env = process.env }) {
         return json(res, 200, {
           name: state.profile.name, assistant_name: state.profile.assistant_name, persona: personaOf(state.profile).label, persona_short: 'Warm, mit Humor und achtsam, dabei sachlich und auf Augenhöhe.', assistant_gender: state.profile.assistant_gender || 'f', user_gender: state.profile.user_gender || null,
           avatars: avatarInfo(), brief_time: state.profile.brief_time,
-          language: state.profile.language || 'de', chat_retention_days: state.profile.chat_retention_days ?? 30, chat_messages: state.chat_log.length, news: state.profile.news || {}, news_status: state.news_status || null,
+          language: state.profile.language || 'de', chat_retention_days: state.profile.chat_retention_days ?? 30, chat_messages: state.chat_log.length, news_feeds: enabledFeeds(state.profile).map((f) => ({ id: f.id, name: f.name, label: f.label, custom: !!f.custom, url: f.custom ? f.url : undefined })), news_catalog: FEEDS.map(({ id, name, label, lang, country }) => ({ id, name, label, lang, country })), news_status: state.news_status || null,
           companion: { due_notify_enabled: state.profile.due_notify_enabled !== false, due_notify_time: state.profile.due_notify_time || '09:00', checkin_enabled: state.profile.checkin_enabled !== false, checkin_time: state.profile.checkin_time || '20:30', weekly_enabled: state.profile.weekly_enabled !== false, weekly_day: state.profile.weekly_day ?? 0, weekly_time: state.profile.weekly_time || '18:00' },
-          safety: { warnings_enabled: state.profile.warnings_enabled !== false, warning_areas: warningRegions(state.profile), holidays_auto: state.profile.holidays_auto !== false, holiday_label: holidayLabel(holidayPlace(state.profile)) },
+          safety: { warnings_enabled: state.profile.warnings_enabled !== false, warning_areas: warningRegions(state.profile), holidays_auto: state.profile.holidays_auto !== false, holiday_label: holidayLabel(holidayPlace(state.profile, state.holiday_cache)), holiday_cc: holidayPlace(state.profile, state.holiday_cache).generic ? holidayPlace(state.profile, state.holiday_cache).country : null },
           usage: usageSummary(state, ctx.today().slice(0, 7)),
           ai: {
             provider: aiProvider(env), providers: PROVIDERS, roles: ROLES, options: MODEL_OPTIONS,
@@ -327,7 +328,6 @@ export function createWebServer({ ctx, bot, vapid, env = process.env }) {
         for (const k of ['checkin_enabled', 'weekly_enabled', 'warnings_enabled', 'holidays_auto', 'due_notify_enabled']) if (typeof b[k] === 'boolean') input[k] = b[k];
         for (const k of ['checkin_time', 'weekly_time', 'due_notify_time']) if (typeof b[k] === 'string' && /^\d{2}:\d{2}$/.test(b[k])) input[k] = b[k];
         if (Number.isInteger(b.weekly_day) && b.weekly_day >= 0 && b.weekly_day <= 6) input.weekly_day = b.weekly_day;
-        if (b.news && typeof b.news === 'object') await executeTool('set_news', b.news, ctx);
         if (input.name === '') input.name = null;
         const WD = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
         const onOff = (v) => (v ? 'an' : 'aus');
@@ -339,13 +339,8 @@ export function createWebServer({ ctx, bot, vapid, env = process.env }) {
           holidays_auto: (v) => `Feiertage automatisch ${onOff(v)}`, due_notify_enabled: (v) => `Hinweise zu fälligen Aufgaben ${onOff(v)}`, due_notify_time: (v) => `Hinweise zu fälligen Aufgaben um ${v}`,
         };
         const before = Object.fromEntries(Object.keys(LABEL).map((k) => [k, state.profile[k]]));
-        const newsBefore = JSON.stringify(state.profile.news || {});
         await executeTool('update_profile', input, ctx);
         for (const k of Object.keys(LABEL)) if (input[k] !== undefined && state.profile[k] !== before[k]) queueSettingNote(state, k, LABEL[k](state.profile[k]));
-        if (JSON.stringify(state.profile.news || {}) !== newsBefore) {
-          const n = state.profile.news || {};
-          queueSettingNote(state, 'news', `Nachrichten im Brief: Welt ${onOff(n.world)}, Portugal ${onOff(n.pt)}, Deutschland ${onOff(n.de)}`);
-        }
         if (RETENTION_OPTIONS.includes(b.chat_retention_days)) queueSettingNote(state, 'retention', `Chatverlauf in der Ansicht behalten: ${b.chat_retention_days === 0 || b.chat_retention_days === null ? 'nie löschen' : `${b.chat_retention_days} Tage`}`);
         ctx.save();
         return json(res, 200, { ok: true, profile_saved: true, brief_time: state.profile.brief_time, name: state.profile.name, assistant_name: state.profile.assistant_name, persona: state.profile.persona, assistant_gender: state.profile.assistant_gender, user_gender: state.profile.user_gender || null, language: state.profile.language, news: state.profile.news });
@@ -377,13 +372,48 @@ export function createWebServer({ ctx, bot, vapid, env = process.env }) {
         fs.createReadStream(avatarFile(who)).pipe(res);
         return;
       }
+      case 'POST /api/news': {
+        const { enable, disable } = await readJson(req);
+        try { await executeTool('set_news', { enable: enable ? [enable] : [], disable: disable ? [disable] : [] }, ctx); }
+        catch (e) { return json(res, 400, { error: e.message }); }
+        queueSettingNote(state, 'news', `Nachrichtenquellen jetzt: ${enabledFeeds(state.profile).map((f) => `${f.name} (${f.label})`).join(', ') || 'keine'}`); ctx.save();
+        return json(res, 200, { ok: true });
+      }
+      case 'POST /api/news/custom': {
+        const { url: raw, name } = await readJson(req);
+        let u; try { u = safeFeedUrl(raw); } catch (e) { return json(res, 400, { error: e.message }); }
+        if ((state.profile.custom_feeds || []).some((f) => f.url === u)) return json(res, 400, { error: 'Diesen Feed gibt es schon' });
+        let title = '';
+        try {
+          const items = await fetchFeed({ name: 'test', url: u, lang: null }, 10000);
+          if (!items.length) throw new Error('keine Meldungen gefunden');
+          title = items.feedTitle || '';
+        } catch (e) { return json(res, 400, { error: `Feed nicht lesbar: ${e.message}` }); }
+        const f = { id: `c_${rid()}`, name: String(name || '').trim().slice(0, 40) || title || new URL(u).hostname.replace(/^www\./, ''), url: u };
+        (state.profile.custom_feeds ||= []).push(f);
+        state.profile.news_feeds = [...enabledFeedIds(state.profile), f.id];
+        queueSettingNote(state, 'news', `Nachrichtenquellen jetzt: ${enabledFeeds(state.profile).map((x) => `${x.name} (${x.label})`).join(', ')}`); ctx.save();
+        return json(res, 200, { ok: true, name: f.name });
+      }
+      case 'POST /api/news/custom/delete': {
+        const { id } = await readJson(req);
+        state.profile.custom_feeds = (state.profile.custom_feeds || []).filter((f) => f.id !== id);
+        state.profile.news_feeds = enabledFeedIds(state.profile).filter((x) => x !== id);
+        queueSettingNote(state, 'news', `Nachrichtenquellen jetzt: ${enabledFeeds(state.profile).map((x) => `${x.name} (${x.label})`).join(', ') || 'keine'}`); ctx.save();
+        return json(res, 200, { ok: true });
+      }
       case 'POST /api/location': {
         const { location_name } = await readJson(req);
         if (typeof location_name !== 'string' || !location_name.trim()) return json(res, 400, { error: 'Ort fehlt' });
+        const feedsBefore = enabledFeedIds(state.profile);
         try { await executeTool('update_profile', { location_name: location_name.trim().slice(0, 100) }, ctx); }
         catch (e) { return json(res, 400, { error: e.message }); }
+        try { const y = Number(localNow(ctx.tz()).date.slice(0, 4)); await ensureHolidays(state.profile, (state.holiday_cache ||= {}), [y, y + 1]); } catch (e) { console.error('Feiertage:', e.message); }
+        const fs2 = enabledFeeds(state.profile);
+        const added = fs2.filter((f) => !feedsBefore.includes(f.id));
+        if (added.length || fs2.length !== feedsBefore.length) queueSettingNote(state, 'news', `Nachrichtenquellen jetzt: ${fs2.map((f) => `${f.name} (${f.label})`).join(', ') || 'keine'}`);
         queueSettingNote(state, 'location', `ihr Ort (für Wetter, Warnungen, Feiertage): ${state.profile.location.name}`); ctx.save();
-        return json(res, 200, { ok: true, location: state.profile.location.name });
+        return json(res, 200, { ok: true, location: state.profile.location.name, news_added: added.map((f) => `${f.name} (${f.label})`) });
       }
       case 'POST /api/weather/place': {
         const { location_name, label, remove } = await readJson(req);

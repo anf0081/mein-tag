@@ -4,6 +4,8 @@ import { ensureReminderTodos, upcoming } from './reminders.js';
 import { dailyBackup } from './backup.js';
 import { describeWarning, getWarnings, localWarning } from './warnings.js';
 import { L } from './i18n.js';
+import { enrichPlace } from './weather.js';
+import { ensureHolidays } from './holidays.js';
 import { proactiveMessage } from './proactive.js';
 import { addAssistantNote } from './chat.js';
 import { pruneChatLog } from './web.js';
@@ -26,6 +28,7 @@ export function createScheduler(ctx, transport) {
     if (state.daily_done === n.date) return;
     state.daily_done = n.date;
     try { const f = dailyBackup(ctx.dataFile, n.date); if (f) console.log(`Backup: ${f}`); } catch (e) { console.error('Backup fehlgeschlagen:', e.message); }
+    try { if (await ensureHolidays(state.profile, (state.holiday_cache ||= {}), [Number(n.date.slice(0, 4)), Number(n.date.slice(0, 4)) + 1])) ctx.save(); } catch (e) { console.error('Feiertage:', e.message); }
     const pruned = pruneChatLog(state);
     if (pruned) console.log(`${pruned} alte Chat-Nachrichten gelöscht (Aufbewahrung ${state.profile.chat_retention_days} Tage)`);
     const made = ensureReminderTodos(state, n.date);
@@ -101,6 +104,9 @@ Schreib eine kurze Wochenvorschau (höchstens 10 Zeilen): die wichtigsten Termin
     lastWarnCheck = Date.now();
     let list;
     try {
+      let changed = false;
+      for (const pl of [p.location, ...(p.weather_places || [])]) { try { if (await enrichPlace(pl)) changed = true; } catch { /* später erneut */ } }
+      if (changed) ctx.save();
       const r = await getWarnings(p);
       list = r.warnings;
       if (r.errors.length) { console.error('Warnungen:', r.errors.join('; ')); if (!list.length) return; }

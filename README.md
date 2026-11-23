@@ -15,9 +15,17 @@ Du chattest mit deiner Assistenz wie mit einer guten Freundin: warm, mit Humor, 
 - **Übersicht** mit Tagesansicht (vor- und zurückblättern, Abgehaktes bleibt bis zum nächsten Tag sichtbar), Aufgaben der nächsten 7 Tage samt fälliger Routinen, „Später“, „Ohne Datum“, allen Routinen und erledigten Aufgaben. Alles lässt sich bearbeiten, Rückgängig per Strg/Cmd+Z.
 - **Begleitung**: Erinnerungen zu einer Uhrzeit, Hinweise zu fälligen Aufgaben, Abend-Check-in, Wochenplanung, Fokus-Modus.
 - **Google Kalender** (lesen, anlegen, ändern, löschen) und **Google Aufgaben** (Zwei-Wege-Sync mit „Alle Aufgaben“ plus Liste „Heute“ für das Homescreen-Widget).
+- **Alles nach deinem Ort**: Stellst du deinen Ort ein, richten sich Wetter, Unwetterwarnungen, Feiertage, Zeitzone und die Nachrichten des Landes automatisch danach.
 - **Wetter** für deinen Ort und weitere Orte (open-meteo.com, kostenlos).
-- **Feiertage** automatisch nach deinem Ort (Portugal inkl. Madeira/Azoren und einiger Gemeinden, Deutschland bundesweit).
-- **Unwetterwarnungen** als Push: für Orte in Deutschland vom Deutschen Wetterdienst (DWD, über die freie [Bright-Sky-API](https://brightsky.dev)), für Orte in Portugal vom Wetterdienst IPMA.
+- **Feiertage**: Portugal inkl. Madeira/Azoren und einiger Gemeinden, Deutschland bundesweit, alle anderen Länder landesweit über [date.nager.at](https://date.nager.at).
+- **Unwetterwarnungen** als Push, jeweils vom zuständigen Wetterdienst:
+  - Deutschland: DWD (über die freie [Bright-Sky-API](https://brightsky.dev), genau für den Ort)
+  - Portugal: IPMA (Festland nach Bezirk, Madeira, Porto Santo)
+  - USA: National Weather Service (genau für den Ort)
+  - Vereinigtes Königreich: Met Office (nach Region)
+  - Österreich, Schweiz, Luxemburg, Belgien, Irland und weitere europäische Länder: [MeteoAlarm](https://meteoalarm.org) (nach dem Namen der Region)
+  - Brasilien: INMET (nach Bundesstaat, noch experimentell)
+- **Nachrichten**: die großen öffentlichen Nachrichtenangebote der deutsch-, englisch- und portugiesischsprachigen Länder (tagesschau, ORF, SRF, RTP, g1, Agência Brasil, BBC, RTÉ, NPR, CBC, ABC, RNZ, DW), automatisch passend zu deinem Land. Weitere Quellen aus der Liste oder beliebige eigene RSS-Feeds lassen sich unter **Über dich** hinzufügen.
 - **KI-Anbieter** in der App umschaltbar: Claude (Anthropic) oder DeepSeek, Modell pro Aufgabe wählbar, Kostenübersicht pro Monat.
 - **Datenschutz**: Alle Daten liegen in einer Datei auf deinem Server. Tägliches Backup, Löschen auf Knopfdruck.
 
@@ -95,7 +103,7 @@ Die KI wird nach Verbrauch abgerechnet. Mit DeepSeek sind das typischerweise wen
 ## Datenschutz und Sicherheit
 
 - Alle Daten liegen in `data/state.json` auf deinem Server (Dateirechte 600). API-Schlüssel, die du in der App einträgst, werden dort gespeichert und nie wieder an den Browser zurückgegeben.
-- Chat-Inhalte gehen an den gewählten KI-Anbieter, Kalender- und Aufgabendaten an Google, Ortskoordinaten an open-meteo.com (Wetter) und – bei Orten in Deutschland – an api.brightsky.dev (DWD-Warnungen).
+- Chat-Inhalte gehen an den gewählten KI-Anbieter, Kalender- und Aufgabendaten an Google. Ortskoordinaten gehen an open-meteo.com (Wetter, Ortssuche) sowie – je nach Land – an api.brightsky.dev (DWD) oder api.weather.gov (NWS). Bei den übrigen Warndiensten, Nachrichten und Feiertagen werden nur allgemeine Listen abgerufen.
 - Zugang per Passwort, Sitzung 90 Tage, Login-Versuche begrenzt. Auf dem Sperrbildschirm steht nur ein neutraler Text.
 - Die Datenschutzseite unter `/datenschutz` füllt sich aus `PRIVACY_OPERATOR`, `PRIVACY_CONTACT` und `PRIVACY_SERVER_LOCATION` in der `.env`.
 - Committe niemals deine `.env` oder den Ordner `data/` (beides steht in `.gitignore`).
@@ -121,7 +129,7 @@ Keine npm-Abhängigkeiten, nur Node.js-Bordmittel.
 
 ## Mitmachen
 
-Fehler und Ideen gern als Issue. Pull Requests bitte mit Test (`npm test`). Weitere Länder für Feiertage oder Unwetterwarnungen sind sehr willkommen (`src/holidays.js`, `src/warnings.js`), ebenso weitere Sprachen (`public/i18n-dict.js`).
+Fehler und Ideen gern als Issue. Pull Requests bitte mit Test (`npm test`). Weitere Warndienste (z. B. Kanada, Australien, Neuseeland) oder Nachrichtenquellen sind sehr willkommen (`src/holidays.js`, `src/warnings.js`), ebenso weitere Sprachen (`public/i18n-dict.js`).
 
 ## Lizenz
 

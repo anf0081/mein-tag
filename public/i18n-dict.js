@@ -150,11 +150,24 @@ add('Sonntag', 'Sunday', 'Domingo'); add('Montag', 'Monday', 'Segunda-feira'); a
 add('Mittwoch', 'Wednesday', 'Quarta-feira'); add('Donnerstag', 'Thursday', 'Quinta-feira'); add('Freitag', 'Friday', 'Sexta-feira'); add('Samstag', 'Saturday', 'Sábado');
 add('Unwetter & Feiertage', 'Weather warnings & holidays', 'Avisos e feriados');
 add('Unwetter und Feiertage', 'Weather warnings and holidays', 'Avisos e feriados');
-add('Unwetterwarnungen (IPMA/DWD)', 'Weather warnings (IPMA/DWD)', 'Avisos meteorológicos (IPMA/DWD)');
-add('Push bei Gelb, Orange oder Rot · für deine Orte gibt es keine Warnungen (nur Portugal und Deutschland)', 'Push for yellow, orange or red · no warnings for your places (Portugal and Germany only)', 'Notificação para amarelo, laranja ou vermelho · sem avisos para os teus locais (só Portugal e Alemanha)');
+add('Unwetterwarnungen', 'Weather warnings', 'Avisos meteorológicos');
+add('Für deine Orte gibt es keinen Warndienst', 'There is no warning service for your places', 'Não há serviço de avisos para os teus locais');
 add('Feiertage automatisch', 'Holidays automatically', 'Feriados automáticos');
 add('Für deinen Ort kenne ich keine Feiertage', "I don't know the holidays for your location", 'Não conheço os feriados do teu local');
 add('Nachrichten im Brief', 'News in the brief', 'Notícias no resumo');
+add('Keine Nachrichten im Brief', 'No news in the brief', 'Sem notícias no resumo');
+add('Weitere Quelle aus der Liste', 'Another source from the list', 'Outra fonte da lista');
+add('Weitere Quelle aus der Liste …', 'Another source from the list …', 'Outra fonte da lista …');
+add('Eigener RSS-Feed', 'Own RSS feed', 'Feed RSS próprio');
+add('Eigener RSS-Feed (Adresse)', 'Own RSS feed (address)', 'Feed RSS próprio (endereço)');
+add('Name (optional)', 'Name (optional)', 'Nome (opcional)');
+add('Diesen Feed gibt es schon', 'This feed already exists', 'Este feed já existe');
+add('Das ist keine gültige Adresse', 'That is not a valid address', 'Isto não é um endereço válido');
+add('Nur http- oder https-Adressen', 'Only http or https addresses', 'Só endereços http ou https');
+add('Diese Adresse ist nicht erlaubt', 'This address is not allowed', 'Este endereço não é permitido');
+add('Österreich', 'Austria', 'Áustria'); add('Schweiz', 'Switzerland', 'Suíça'); add('Brasilien', 'Brazil', 'Brasil');
+add('Vereinigtes Königreich', 'United Kingdom', 'Reino Unido'); add('Irland', 'Ireland', 'Irlanda'); add('USA', 'USA', 'EUA');
+add('Kanada', 'Canada', 'Canadá'); add('Australien', 'Australia', 'Austrália'); add('Neuseeland', 'New Zealand', 'Nova Zelândia');
 add('Welt', 'World', 'Mundo');
 add('Deutschland', 'Germany', 'Alemanha');
 add('Portugal', 'Portugal', 'Portugal');
@@ -296,8 +309,8 @@ const dayWord = { en: { Tage: 'days', Wochen: 'weeks', Monate: 'months', Jahre: 
 const every1 = { en: { 'n Tag': 'every day', 'n Monat': 'every month', 's Jahr': 'every year', ' Woche': 'every week' }, pt: { 'n Tag': 'todos os dias', 'n Monat': 'todos os meses', 's Jahr': 'todos os anos', ' Woche': 'todas as semanas' } };
 const gender = { en: { weiblich: 'female', männlich: 'male', divers: 'non-binary' }, pt: { weiblich: 'feminino', männlich: 'masculino', divers: 'não binário' } };
 const placeDe = (s, l) => (l === 'en'
-  ? s.replace('Deutschland (bundesweite Feiertage)', 'Germany (nationwide holidays)').replace('Azoren', 'Azores').replace(' und ', ' and ')
-  : s.replace('Deutschland (bundesweite Feiertage)', 'Alemanha (feriados nacionais)').replace('Azoren', 'Açores').replace(' und ', ' e '));
+  ? s.replace('Deutschland (bundesweite Feiertage)', 'Germany (nationwide holidays)').replace('(landesweite Feiertage)', '(nationwide holidays)').replace('Azoren', 'Azores').replace(' und ', ' and ')
+  : s.replace('Deutschland (bundesweite Feiertage)', 'Alemanha (feriados nacionais)').replace('(landesweite Feiertage)', '(feriados nacionais)').replace('Azoren', 'Açores').replace(' und ', ' e '));
 const news = (s, l) => s.replace(/\bWelt\b/g, l === 'en' ? 'World' : 'Mundo').replace(/\bDeutschland\b/g, l === 'en' ? 'Germany' : 'Alemanha');
 
 export const DICT = { en: E, pt: P };
@@ -325,7 +338,7 @@ export const RULES = [
   [/^(\d+) Anfragen$/, { en: '$1 requests', pt: '$1 pedidos' }],
   [/^ca\. (.+) gesamt$/, { en: 'approx. $1 total', pt: 'aprox. $1 no total' }],
   [/^Letzter Abruf (Heute|Gestern|.+?), (\d\d:\d\d): (.+)$/s, { en: (d, t, r) => `Last fetch ${d}, ${t}: ${news(r, 'en')}`, pt: (d, t, r) => `Última atualização ${d}, ${t}: ${news(r, 'pt')}` }],
-  [/^Push bei Gelb, Orange oder Rot · für (.+)$/, { en: 'Push for yellow, orange or red · for $1', pt: 'Notificação para amarelo, laranja ou vermelho · para $1' }],
+  [/^Offizielle Warnungen als Push · (.+)$/, { en: 'Official warnings as push · $1', pt: 'Avisos oficiais por notificação · $1' }],
   [/^Nach deinem Ort: (.+)$/, { en: (x) => `Based on your location: ${placeDe(x, 'en')}`, pt: (x) => `Conforme o teu local: ${placeDe(x, 'pt')}` }],
   [/^Dein Tagesplan von (.+)$/, { en: 'Your day plan from $1', pt: 'O teu plano do dia, por $1' }],
   [/^Dein Tagesplan$/, { en: 'Your day plan', pt: 'O teu plano do dia' }],
@@ -342,6 +355,9 @@ export const RULES = [
     pt: (a, b) => `${({ 'Schlüssel ist in der .env hinterlegt': 'A chave está no .env', 'Schlüssel ist gespeichert': 'A chave está guardada', 'Noch kein Schlüssel': 'Ainda sem chave' })[a] || a}. Obtém uma chave em ${b}.`,
   }],
   [/^Tagesansicht (.+)$/, { en: 'Day view $1', pt: 'Vista do dia $1' }],
+  [/^Feed nicht lesbar: (.+)$/, { en: 'Feed not readable: $1', pt: 'Feed ilegível: $1' }],
+  [/^Ort: (.+) · Nachrichten dazu: (.+)$/, { en: 'Location: $1 · news added: $2', pt: 'Local: $1 · notícias adicionadas: $2' }],
+  [/^(.+) – (.+)$/, { en: (a, b) => `${a} – ${b}`, pt: (a, b) => `${a} – ${b}` }],
   [/^Schlüssel von (.+)\.$/, { en: 'Get a key at $1.', pt: 'Obtém uma chave em $1.' }],
 ];
 

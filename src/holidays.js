@@ -21,7 +21,7 @@ export const MUNICIPAL = {
 export const MUNICIPAL_MAINLAND = { lisboa: ['06-13', 'Santo António (Lissabon)'], porto: ['06-24', 'São João (Porto)'], braga: ['06-24', 'São João (Braga)'], coimbra: ['07-04', 'Rainha Santa Isabel (Coimbra)'] };
 
 /** Welche Feiertage gelten am Wohnort? { country: 'PT'|'DE'|null, region: 'madeira'|'azores'|'mainland'|null, municipality } */
-export function holidayPlace(profile) {
+export function holidayPlace(profile, cache = null) {
   const loc = profile?.location;
   if (!loc) return { country: null, region: null, municipality: null }; // noch kein Ort: keine Feiertage
   const name = String(loc.name || '').toLowerCase();
@@ -33,12 +33,34 @@ export function holidayPlace(profile) {
   if (inBox(36.8, 39.9, -31.4, -24.8)) return { country: 'PT', region: 'azores', municipality: null };
   if (cc === 'PT' || inBox(36.9, 42.2, -9.6, -6.1)) return { country: 'PT', region: 'mainland', municipality: MUNICIPAL_MAINLAND[town] ? town : null };
   if (cc === 'DE') return { country: 'DE', region: null, municipality: null };
+  // alle anderen Länder: landesweite Feiertage von date.nager.at (im Zwischenspeicher)
+  if (cc) return { country: cc, region: null, municipality: null, generic: true, cache: cache || {} };
   return { country: null, region: null, municipality: null };
+}
+
+/** Feiertage für andere Länder laden (kostenlose API date.nager.at, einmal pro Jahr und Land). */
+export async function ensureHolidays(profile, cache, years) {
+  const p = holidayPlace(profile, cache);
+  if (!p.generic) return false;
+  let changed = false;
+  for (const y of years) {
+    const key = `${p.country}-${y}`;
+    const have = cache[key];
+    if (have && (have.list.length || Date.now() - have.at < 7 * 864e5)) continue;
+    const r = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${y}/${p.country}`, { headers: { Accept: 'application/json' } });
+    if (r.status === 404 || r.status === 204) { cache[key] = { at: Date.now(), list: [], unsupported: true }; changed = true; continue; }
+    if (!r.ok) throw new Error(`Feiertage HTTP ${r.status}`);
+    const list = (await r.json()).filter((h) => h.global !== false && (!h.types || h.types.includes('Public')))
+      .map((h) => ({ date: h.date, name: h.localName || h.name, name_en: h.name }));
+    cache[key] = { at: Date.now(), list }; changed = true;
+  }
+  return changed;
 }
 
 /** Kurzbeschreibung für die Einstellungen, z. B. „Portugal, Madeira und Machico“. */
 export function holidayLabel(place) {
   if (!place.country) return null;
+  if (place.generic) return Object.keys(place.cache || {}).some((k) => k.startsWith(`${place.country}-`) && place.cache[k].unsupported) ? null : `${place.country} (landesweite Feiertage)`;
   if (place.country === 'DE') return 'Deutschland (bundesweite Feiertage)';
   const parts = ['Portugal', { madeira: 'Madeira', azores: 'Azoren' }[place.region]].filter(Boolean);
   const m = place.municipality ? (MUNICIPAL[place.municipality] || MUNICIPAL_MAINLAND[place.municipality]) && place.municipality.replace(/\b\p{L}/gu, (c) => c.toUpperCase()) : null;
@@ -64,6 +86,8 @@ export function holidaysForYear(y, place = {}) {
     if (place.region === 'azores') list.push([addDays(e, 50), 'Dia dos Açores (Pfingstmontag)']);
     const m = MUNICIPAL[place.municipality] || MUNICIPAL_MAINLAND[place.municipality];
     if (m) list.push([`${y}-${m[0]}`, `${m[1]} (Gemeinde)`]);
+  } else if (place.generic) {
+    list = (place.cache?.[`${place.country}-${y}`]?.list || []).map((h) => [h.date, h.name]);
   } else if (place.country === 'DE') {
     list = [
       [`${y}-01-01`, 'Neujahr'], [addDays(e, -2), 'Karfreitag'], [addDays(e, 1), 'Ostermontag'], [`${y}-05-01`, 'Tag der Arbeit'],

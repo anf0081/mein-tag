@@ -12,7 +12,7 @@ export async function geocode(name) {
   const j = await r.json();
   const g = j.results?.[0];
   if (!g) throw new Error(`Ort „${name}“ nicht gefunden`);
-  return { name: `${g.name}${g.country ? `, ${g.country}` : ''}`, lat: g.latitude, lon: g.longitude, tz: g.timezone, elevation: g.elevation ?? null, country_code: g.country_code || null };
+  return { name: `${g.name}${g.country ? `, ${g.country}` : ''}`, lat: g.latitude, lon: g.longitude, tz: g.timezone, elevation: g.elevation ?? null, country_code: g.country_code || null, admin1: g.admin1 || null, admin2: g.admin2 || null, admin3: g.admin3 || null };
 }
 
 /** Wetter für heute und morgen. Gibt { today, tomorrow, text } zurück. */
@@ -48,4 +48,20 @@ export function humanWeather(w) {
   const wind = k < 12 ? 'kaum Wind' : k < 20 ? 'leichter Wind' : k < 30 ? 'mäßiger Wind' : k < 40 ? 'frischer Wind' : k < 55 ? 'starker Wind' : 'stürmisch';
   const gust = (w.gusts_kmh ?? 0) >= 55 ? `, Böen bis ${w.gusts_kmh} km/h` : '';
   return `${w.summary}, ${w.tmin}–${w.tmax} °C, ${rain}, ${wind}${gust}`;
+}
+
+/** Fehlende Angaben zu einem gespeicherten Ort (Land, Region) nachtragen – für Warnungen, Feiertage und Nachrichten. */
+export async function enrichPlace(p) {
+  if (!p || typeof p.lat !== 'number' || (p.country_code && p.admin1 !== undefined)) return false;
+  const q = String(p.name || '').split(',')[0].trim();
+  if (!q) return false;
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=de`);
+  if (!r.ok) throw new Error(`Geocoding HTTP ${r.status}`);
+  const list = (await r.json()).results || [];
+  const dist = (g) => (g.latitude - p.lat) ** 2 + ((g.longitude - p.lon) * Math.cos(p.lat * Math.PI / 180)) ** 2;
+  const g = list.sort((a, b) => dist(a) - dist(b))[0];
+  if (!g || dist(g) > 0.5 ** 2) { p.admin1 = p.admin1 ?? null; return true; } // nichts Passendes in der Nähe: nicht ständig neu suchen
+  Object.assign(p, { country_code: p.country_code || g.country_code || null, admin1: g.admin1 || null, admin2: g.admin2 || null, admin3: g.admin3 || null });
+  if (p.elevation == null && g.elevation != null) p.elevation = g.elevation;
+  return true;
 }

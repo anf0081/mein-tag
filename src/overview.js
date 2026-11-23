@@ -1,3 +1,4 @@
+import { enabledFeeds } from './news.js';
 // Vollständiger Onboarding-Überblick direkt aus den gespeicherten Daten (ohne KI, ohne Kürzung).
 import { personaOf } from './personas.js';
 import { langName } from './lang.js';
@@ -37,9 +38,8 @@ export function buildOverview(state) {
   sec('Feiertage & Feste', state.holidays.map((h) => `- ${h.name}: ${h.date.length === 5 ? `${h.date.slice(3)}.${h.date.slice(0, 2)}.` : h.date}, ${h.lead_days ?? 21} Tage Vorlauf${h.notes ? ` · ${h.notes}` : ''}`));
   sec('Gesundheit & Vorsorge', state.recurring.filter((r) => /gesund|arzt|vorsorge|zahn/i.test(`${r.category || ''} ${r.title}`)).map((r) => `- ${r.title}: nächstes Mal ${r.next_due}`));
   sec('Reisen', state.trips.map((t) => `- ${t.title}: ${t.start}${t.end ? ` bis ${t.end}` : ''}${t.destination ? `, ${t.destination}` : ''}${t.packing?.length ? ` · Packliste: ${t.packing.join(', ')}` : ''}`));
-  const news = p.news || {};
   sec('Nachrichten & Brief', [
-    `- Nachrichten: ${[['world', 'Welt'], ['pt', 'Portugal'], ['de', 'Deutschland']].filter(([k]) => news[k]).map(([, l]) => l).join(', ') || 'aus'}`,
+    `- Nachrichten: ${enabledFeeds(p).map((f) => `${f.name} (${f.label})`).join(', ') || 'aus'}`,
     ...(p.news_topics?.length ? [`- Eigene Themen: ${p.news_topics.join(', ')}`] : []),
     `- Weitere Wetter-Orte: ${(p.weather_places || []).map((w) => `${w.name}${w.label ? ` (${w.label})` : ''}`).join(', ') || 'keine'}`,
     `- Abend-Check-in: ${p.checkin_enabled === false ? 'aus' : p.checkin_time || '20:30'} · Wochenplanung: ${p.weekly_enabled === false ? 'aus' : `${WD[p.weekly_day ?? 0]} ${p.weekly_time || '18:00'}`}`,

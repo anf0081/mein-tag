@@ -92,6 +92,7 @@ test('chat: Tool-Loop speichert Todo und merkt Feedback', async () => {
 
 test('bot: 24h-Fenster -> Template, Brief wird nach Antwort zugestellt; Feedback-Buttons', async () => {
   const ctx = mkCtx(); ctx.state.onboarding.done = true; ctx.state.profile.brief_time = '00:00';
+  Object.assign(ctx.state.profile, { checkin_enabled: false, weekly_enabled: false, due_notify_enabled: false }); // sonst je nach Uhrzeit weitere Nachrichten
   const sent = [];
   const tr = { sendText: async (t) => sent.push(['text', t]), sendButtons: async (b, x) => sent.push(['btn', x.map((y) => y.id).join()]), sendTemplate: async () => sent.push(['tpl']) };
   fakeClaude([() => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: '*Guten Morgen!*' }] })]);

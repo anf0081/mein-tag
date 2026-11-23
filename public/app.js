@@ -73,6 +73,7 @@ function dayLabel(ts) {
   return `${d.toLocaleDateString(locale(), { weekday: 'short' })} ${d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' })}, ${time}`;
 }
 const numDate = (d) => d.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: 'numeric' });
+const regionName = (cc) => { try { return new Intl.DisplayNames([locale()], { type: 'region' }).of(cc); } catch { return cc; } };
 const longDate = () => `${new Date().toLocaleDateString(locale(), { weekday: 'long' })}, ${numDate(new Date())}`;
 const addDaysISO = (iso, n) => { const d = new Date(`${iso}T12:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const dayDiff = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
@@ -563,15 +564,22 @@ function renderProfile() {
       <input type="time" aria-label="Uhrzeit Wochenplanung" data-set="weekly_time" value="${esc(p.companion?.weekly_time || '18:00')}"></div>
   </section>
   <section class="section" aria-label="Unwetter und Feiertage"><h2>Unwetter &amp; Feiertage</h2>
-    <label class="item"><span class="grow"><span class="t" style="display:block">Unwetterwarnungen (IPMA/DWD)</span><span class="s">Push bei Gelb, Orange oder Rot · ${p.safety?.warning_areas?.length ? `für ${esc(p.safety.warning_areas.join(', '))}` : 'für deine Orte gibt es keine Warnungen (nur Portugal und Deutschland)'}</span></span>
+    <label class="item"><span class="grow"><span class="t" style="display:block">Unwetterwarnungen</span><span class="s">${p.safety?.warning_areas?.length ? `Offizielle Warnungen als Push · ${esc(p.safety.warning_areas.join(', '))}` : 'Für deine Orte gibt es keinen Warndienst'}</span></span>
       <input type="checkbox" role="switch" class="switch" data-set="warnings_enabled" ${p.safety?.warnings_enabled ? 'checked' : ''}></label>
-    <label class="item"><span class="grow"><span class="t" style="display:block">Feiertage automatisch</span><span class="s">${p.safety?.holiday_label ? `Nach deinem Ort: ${esc(p.safety.holiday_label)}` : 'Für deinen Ort kenne ich keine Feiertage'}</span></span>
+    <label class="item"><span class="grow"><span class="t" style="display:block">Feiertage automatisch</span><span class="s">${p.safety?.holiday_label ? `Nach deinem Ort: ${esc(p.safety.holiday_cc ? `${regionName(p.safety.holiday_cc)} (landesweite Feiertage)` : p.safety.holiday_label)}` : 'Für deinen Ort kenne ich keine Feiertage'}</span></span>
       <input type="checkbox" role="switch" class="switch" data-set="holidays_auto" ${p.safety?.holidays_auto ? 'checked' : ''}></label>
   </section>
   <section class="section" aria-label="Nachrichten im Brief"><h2>Nachrichten im Brief</h2>
-    ${[['world', 'Welt', 'tagesschau, BBC'], ['pt', 'Portugal', 'RTP'], ['de', 'Deutschland', 'tagesschau']].map(([k, l, src]) => `
-    <label class="item"><span class="grow"><span class="t" style="display:block">${l}</span><span class="s">${src}</span></span>
-      <input type="checkbox" role="switch" class="switch" data-news="${k}" ${p.news?.[k] ? 'checked' : ''}></label>`).join('')}
+    ${(p.news_feeds || []).map((f) => `<div class="item tight"><span class="grow"><span class="t" style="display:block">${esc(f.label)}</span><span class="s">${f.custom ? esc(f.url.replace(/^https?:\/\//, '').slice(0, 48)) : esc(f.name)}</span></span>
+      <button class="icon-btn" data-news-off="${esc(f.id)}" data-custom="${f.custom ? 1 : ''}" aria-label="Entfernen: ${esc(f.name)}">${ICON.x}</button></div>`).join('') || '<div class="item"><span class="s">Keine Nachrichten im Brief</span></div>'}
+    ${(() => { const on = new Set((p.news_feeds || []).map((f) => f.id)); const rest = (p.news_catalog || []).filter((f) => !on.has(f.id));
+      return rest.length ? `<form class="item add-place" id="news-add-form"><label for="news-pick" class="sr">Weitere Quelle aus der Liste</label>
+      <select id="news-pick" aria-label="Weitere Quelle aus der Liste"><option value="">Weitere Quelle aus der Liste …</option>${rest.map((f) => `<option value="${esc(f.id)}">${esc(f.label)} – ${esc(f.name)}</option>`).join('')}</select>
+      <button class="btn tonal small">Hinzufügen</button></form>` : ''; })()}
+    <form class="item add-place" id="news-custom-form"><label for="news-url" class="sr">Eigener RSS-Feed</label>
+      <input id="news-url" type="url" inputmode="url" placeholder="Eigener RSS-Feed (Adresse)" autocomplete="off">
+      <input id="news-name" type="text" maxlength="40" placeholder="Name (optional)" aria-label="Name (optional)">
+      <button class="btn tonal small">Hinzufügen</button></form>
     ${p.news_status ? `<div class="item"><span class="s">Letzter Abruf ${esc(dayLabel(p.news_status.at))}: ${esc(Object.entries(p.news_status.counts).map(([k, v]) => `${k} ${v}`).join(' · ') || '–')}${p.news_status.errors?.length ? `<br>Probleme: ${esc(p.news_status.errors.join('; '))}` : ''}</span></div>` : ''}
   </section>
   <section class="section" aria-label="Wetter-Orte"><h2>Wetter-Orte</h2>
@@ -684,10 +692,7 @@ $('#profile').addEventListener('change', async (e) => {
     const v = e.target.type === 'checkbox' ? e.target.checked : k === 'weekly_day' ? Number(e.target.value) : e.target.value;
     try { await api('/api/profile', { [k]: v }); toast('Gespeichert'); } catch (err) { toast(err.message); }
   }
-  if (e.target.dataset.news) {
-    try { const j = await api('/api/profile', { news: { [e.target.dataset.news]: e.target.checked } }); S.profile.news = j.news; toast('Gespeichert'); }
-    catch (err) { toast(err.message); e.target.checked = !e.target.checked; }
-  }
+
   if (e.target.id === 'brief-time') {
     try { await api('/api/profile', { brief_time: e.target.value }); toast(`Morgenbrief kommt jetzt um ${e.target.value} Uhr`); } catch (err) { toast(err.message); }
   }
@@ -743,6 +748,8 @@ $('#profile').addEventListener('click', async (e) => {
   if (e.target.closest('[data-goal-cancel]')) { S.editGoal = null; renderProfile(); return; }
   const gd = e.target.closest('[data-goal-del]');
   if (gd) { try { await api('/api/entity/delete', { id: gd.dataset.goalDel }); toast('Entfernt'); loadProfile(); } catch (err) { toast(err.message); } return; }
+  const no = e.target.closest('[data-news-off]');
+  if (no) { try { await api(no.dataset.custom ? '/api/news/custom/delete' : '/api/news', no.dataset.custom ? { id: no.dataset.newsOff } : { disable: no.dataset.newsOff }); toast('Entfernt'); loadProfile(); } catch (err) { toast(err.message); } return; }
   if (e.target.closest('[data-location-edit]')) { S.editLocation = true; renderProfile(); $('#location-name')?.focus(); return; }
   if (e.target.closest('[data-location-cancel]')) { S.editLocation = false; renderProfile(); return; }
   const pd = e.target.closest('[data-place-del]');
@@ -780,10 +787,24 @@ $('#profile').addEventListener('submit', async (e) => {
     } catch (err) { toast(err.message); }
     return;
   }
+  if (e.target.id === 'news-add-form') {
+    e.preventDefault();
+    const id = $('#news-pick').value; if (!id) return;
+    try { await api('/api/news', { enable: id }); toast('Hinzugefügt'); loadProfile(); } catch (err) { toast(err.message); }
+    return;
+  }
+  if (e.target.id === 'news-custom-form') {
+    e.preventDefault();
+    const url = $('#news-url').value.trim(); if (!url) return;
+    const btn = e.target.querySelector('button'); btn.disabled = true;
+    try { const j = await api('/api/news/custom', { url, name: $('#news-name').value }); toast(`Hinzugefügt: ${j.name}`); loadProfile(); }
+    catch (err) { toast(err.message); btn.disabled = false; }
+    return;
+  }
   if (e.target.id === 'location-form') {
     e.preventDefault();
     const v = $('#location-name').value.trim(); if (!v) return;
-    try { const j = await api('/api/location', { location_name: v }); S.editLocation = false; toast(`Ort: ${j.location}`); loadProfile(); }
+    try { const j = await api('/api/location', { location_name: v }); S.editLocation = false; toast(j.news_added?.length ? `Ort: ${j.location} · Nachrichten dazu: ${j.news_added.join(', ')}` : `Ort: ${j.location}`); loadProfile(); }
     catch (err) { toast(err.message); }
     return;
   }
